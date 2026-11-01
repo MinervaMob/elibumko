@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@theme {
+	--color-brick: #9a3b3b;
+	--color-brick-dark: #7e2d2d;
+	--color-brick-light: #ad4848;
+	--color-terracotta: #c08261;
+	--color-terracotta-dark: #a86b4b;
+	--color-terracotta-light: #cf9b7f;
+	--color-sand: #e2c799;
+	--color-sand-dark: #cfb17d;
+	--color-sand-light: #ede0c7;
+	--color-cream: #f2ecbe;
+	--color-cream-dark: #e5dda4;
+	--color-cream-light: #f8f4d5;
+	--color-ink: #2a1a16;
+	--color-ink-muted: #6b5a4e;
+	--color-reader-dark: #1c1210;
+	--color-reader-sepia: #f4ecd8;
+	--color-reader-sepia-ink: #433422;
+
+	--font-serif: 'Fraunces', Georgia, serif;
+	--font-sans: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-reader: 'Literata', Georgia, serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	--font-dyslexic: 'Atkinson Hyperlegible', sans-serif;
+
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+
+	--spacing-13: 52px;
+	--spacing-15: 60px;
+	--spacing-21: 84px;
+	--spacing-25: 100px;
+	--spacing-35: 140px;
+	--spacing-40: 160px;
+	--spacing-45: 180px;
+	--spacing-50: 200px;
+	--spacing-55: 220px;
+	--spacing-65: 260px;
+	--spacing-70: 280px;
+	--spacing-80: 320px;
+	--spacing-115: 460px;
+	--spacing-300: 1200px;
+}
+
+/* Base custom styles respecting the calm library aesthetic */
+:root {
+	--ease-warm: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body {
+	background-color: #f2ecbe;
+	color: #2a1a16;
+	font-family: 'Source Sans 3', sans-serif;
+	line-height: 1.65;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Custom Library Component Utilities */
+.book-spine-effect {
+	position: relative;
+}
+.book-spine-effect::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 14px;
+	background: linear-gradient(
+		to right,
+		rgba(0, 0, 0, 0.28) 0%,
+		rgba(0, 0, 0, 0.12) 30%,
+		rgba(255, 255, 255, 0.15) 50%,
+		rgba(0, 0, 0, 0.08) 75%,
+		transparent 100%
+	);
+	pointer-events: none;
+	z-index: 10;
+	border-top-left-radius: inherit;
+	border-bottom-left-radius: inherit;
+}
+
+.book-shadow {
+	box-shadow:
+		-2px 0 4px rgba(42, 26, 22, 0.15),
+		4px 6px 14px rgba(42, 26, 22, 0.12),
+		0 1px 3px rgba(42, 26, 22, 0.08);
+}
+
+.book-shadow-hover {
+	box-shadow:
+		-3px 0 6px rgba(42, 26, 22, 0.18),
+		8px 14px 24px rgba(42, 26, 22, 0.16),
+		0 2px 4px rgba(42, 26, 22, 0.1);
+}
+
+.shelf-plank {
+	height: 14px;
+	background: linear-gradient(180deg, #e2c799 0%, #cfb17d 50%, #b89862 100%);
+	border-top: 1px solid rgba(255, 255, 255, 0.4);
+	border-bottom: 2px solid #8f7243;
+	box-shadow: 0 8px 16px -4px rgba(42, 26, 22, 0.22);
+}
+
+.catalog-card {
+	background-color: #f2ecbe;
+	border: 1px solid rgba(42, 26, 22, 0.14);
+	box-shadow: 0 2px 6px rgba(42, 26, 22, 0.04);
+}
+
+/* Custom focus ring */
+.focus-library {
+	outline: none;
+}
+.focus-library:focus-visible {
+	outline: 2px solid #9a3b3b;
+	outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
