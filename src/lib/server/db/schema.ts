@@ -22,7 +22,7 @@ export const books = pgTable('books', {
 	toc: jsonb('toc').$type<TableOfContentItem[]>().default([]),
 	readersCount: integer('readers_count').default(0),
 	isFeatured: boolean('is_featured').default(false),
-	fileType: text('file_type').$type<'pdf' | 'epub'>().default('pdf'),
+	fileType: text('file_type').$type<'pdf' | 'epub' | 'docx'>().default('pdf'),
 	filePath: text('file_path'),
 	fileSize: integer('file_size'),
 	createdAt: timestamp('created_at').defaultNow().notNull(),

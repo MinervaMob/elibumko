@@ -26,7 +26,7 @@ export interface BookData {
 	readersCount?: number | null;
 	isSaved?: boolean;
 	isFeatured?: boolean | null;
-	fileType?: 'pdf' | 'epub';
+	fileType?: 'pdf' | 'epub' | 'docx';
 	fileUrl?: string | null;
 	filePath?: string | null;
 	fileSize?: number | null;

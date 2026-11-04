@@ -87,11 +87,6 @@
 		})
 	);
 
-	function openCreateModal() {
-		bookToEdit = null;
-		isFormModalOpen = true;
-	}
-
 	function openEditModal(book: BookData) {
 		bookToEdit = book;
 		isFormModalOpen = true;
@@ -161,14 +156,13 @@
 
 		<!-- Action Buttons -->
 		<div class="flex shrink-0 items-center gap-2.5">
-			<button
-				type="button"
-				onclick={openCreateModal}
+			<a
+				href="/admin/buku/tambah"
 				class="focus-library flex items-center gap-1.5 rounded-md bg-brick px-4 py-2 text-xs font-semibold text-cream shadow-xs transition-all hover:bg-brick/90 sm:text-sm"
 			>
 				<Plus size={16} />
 				<span>Unggah Naskah Baru</span>
-			</button>
+			</a>
 		</div>
 	</div>
 

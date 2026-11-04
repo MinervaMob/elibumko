@@ -3,7 +3,7 @@
 
 	interface Props {
 		isOpen: boolean;
-		fileType?: 'pdf' | 'epub';
+		fileType?: 'pdf' | 'epub' | 'docx';
 		theme: 'light' | 'sepia' | 'dark' | 'contrast';
 		readMode: 'paged' | 'scroll';
 		twoPageSpread: boolean;

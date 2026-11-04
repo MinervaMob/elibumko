@@ -39,7 +39,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			synopsis: payload.synopsis?.trim() || '',
 			toc: Array.isArray(payload.toc) ? payload.toc : [],
 			isFeatured: Boolean(payload.isFeatured),
-			fileType: payload.fileType === 'epub' ? 'epub' : 'pdf',
+			fileType: payload.fileType === 'epub' ? 'epub' : payload.fileType === 'docx' ? 'docx' : 'pdf',
 			filePath: payload.filePath || undefined,
 			fileSize: payload.fileSize ? parseInt(payload.fileSize) : undefined,
 			coverUrl: payload.coverUrl || null

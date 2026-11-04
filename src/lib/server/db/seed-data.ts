@@ -465,6 +465,44 @@ export const INITIAL_BOOKS: BookData[] = [
 		],
 		readersCount: 2490,
 		createdAt: '2023-03-12'
+	},
+	{
+		id: 13,
+		title: 'Sosio Antropologi',
+		slug: 'sosio-antropologi-u5sz',
+		author: 'Yuli Laraenim S.K.M., M.P.H, dkk.',
+		publisher: 'Penerbit Yayasan Cendikia Mulia Mandiri',
+		year: 2024,
+		edition: 'Edisi Pertama',
+		pages: 206,
+		language: 'Bahasa Indonesia',
+		classification: '300',
+		ddcCode: '300',
+		ddcName: 'Ilmu Sosial, Hukum & Pendidikan',
+		category: 'Ilmu Sosial & Hukum',
+		tags: ['Sosiologi', 'Antropologi', 'Ilmu Sosial', 'Kesehatan', 'Buku Ajar', 'UMKO'],
+		synopsis:
+			'Buku "Sosio Antropologi" merupakan buku referensi dan bahan ajar akademik terstandar pada bidang Ilmu Sosial & Hukum. Disusun secara sistematis guna memfasilitasi penguasaan konsep teoretis serta penerapan praktis bagi mahasiswa dan akademisi di lingkungan Universitas Muhammadiyah Kotabumi.',
+		toc: [
+			{ title: 'BAB I KONSEP DASAR SOSIOLOGI KESEHATAN', page: 10 },
+			{ title: 'BAB II PROSES SOSIAL DAN INTERAKSI SOSIAL', page: 26 },
+			{ title: 'BAB III PERUBAHAN SOSIAL BUDAYA MASYARAKAT', page: 38 },
+			{ title: 'BAB IV KELOMPOK SOSIAL', page: 56 },
+			{ title: 'BAB V DETERMINAN SOSIAL DALAM KESEHATAN MASYARAKAT', page: 70 },
+			{ title: 'BAB VI PENDEKATAN SOSIAL DALAM KESEHATAN MASYARAKAT', page: 94 },
+			{ title: 'BAB VII KONSEP BUDAYA, UNSUR BUDAYA DAN MASYARAKAT', page: 126 },
+			{ title: 'BAB VIII DETERMINAN BUDAYA DALAM KESEHATAN MASYARAKAT', page: 142 },
+			{ title: 'BAB IX PERAN ANTROPOLOGI KESEHATAN', page: 160 },
+			{ title: 'BAB X PENDEKATAN ANTROPOLOGI DALAM KESEHATAN MASYARAKAT', page: 174 },
+			{ title: 'DAFTAR PUSTAKA', page: 194 }
+		],
+		fileType: 'pdf',
+		filePath: 'storage/books/SOSIO-ANTROPOLOGI-1793692569101.pdf',
+		coverUrl: '/api/covers/cover-cover-page1-SOSIO-ANTROPOLOGI-1793692567060.jpg',
+		readersCount: 42,
+		isSaved: true,
+		isFeatured: true,
+		createdAt: '2024-11-03'
 	}
 ];
 

@@ -143,7 +143,7 @@ export const repository = {
 		synopsis?: string;
 		toc?: TableOfContentItem[];
 		isFeatured?: boolean;
-		fileType?: 'pdf' | 'epub';
+		fileType?: 'pdf' | 'epub' | 'docx';
 		filePath?: string;
 		fileSize?: number;
 		coverUrl?: string | null;

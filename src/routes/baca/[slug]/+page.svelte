@@ -451,6 +451,7 @@
 				{readMode}
 				{theme}
 				{twoPageSpread}
+				{toc}
 				searchQuery={isSearchOpen ? searchQuery : ''}
 				onPageChange={(p: number) => {
 					currentPage = p;
@@ -458,6 +459,9 @@
 				}}
 				onTotalPagesLoaded={(n: number) => {
 					totalPages = n;
+				}}
+				onTocLoaded={(t: TableOfContentItem[]) => {
+					toc = t;
 				}}
 				onSearchResults={handleSearchResults}
 				onReady={() => {}}

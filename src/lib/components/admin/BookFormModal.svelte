@@ -48,7 +48,7 @@
 	let tags = $state<string[]>([]);
 	let synopsis = $state('');
 	let isFeatured = $state(false);
-	let fileType = $state<'pdf' | 'epub'>('pdf');
+	let fileType = $state<'pdf' | 'epub' | 'docx'>('pdf');
 	let coverUrl = $state<string | null>(null);
 	let isUploadingCover = $state(false);
 

@@ -1,7 +1,8 @@
 <script lang="ts">
 	/* eslint-disable @typescript-eslint/no-explicit-any, svelte/no-dom-manipulating */
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import type { TableOfContentItem } from '#lib/types';
 
 	type ReadMode = 'paged' | 'scroll';
 	type Theme = 'light' | 'sepia' | 'dark' | 'contrast';
@@ -19,9 +20,11 @@
 		readMode?: ReadMode;
 		theme?: Theme;
 		twoPageSpread?: boolean;
+		toc?: TableOfContentItem[];
 		searchQuery?: string;
 		onPageChange?: (page: number) => void;
 		onTotalPagesLoaded?: (total: number) => void;
+		onTocLoaded?: (toc: TableOfContentItem[]) => void;
 		onSearchResults?: (results: SearchResult[]) => void;
 		onReady?: () => void;
 	}
@@ -33,9 +36,11 @@
 		readMode = 'paged',
 		theme = 'light',
 		twoPageSpread = false,
+		toc = [],
 		searchQuery = '',
 		onPageChange,
 		onTotalPagesLoaded,
+		onTocLoaded,
 		onSearchResults,
 		onReady
 	}: Props = $props();
@@ -46,13 +51,14 @@
 	let canvas2El: HTMLCanvasElement | undefined = $state(); // second page for two-page spread
 	let scrollContainerEl: HTMLDivElement | undefined = $state();
 
-	let pdfDoc: any = null;
+	let pdfDoc: any = $state(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let renderTask: any = null;
 	let renderTask2: any = null;
 	let totalPages = $state(0);
 	let renderPending = $state(false);
+	let renderSeq = 0;
 
 	// Touch handling for swipe
 	let touchStartX = 0;
@@ -80,17 +86,86 @@
 			pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 			const loadingTask = pdfjsLib.getDocument({ url: src });
-			pdfDoc = await loadingTask.promise;
-			totalPages = pdfDoc.numPages;
+			const loadedDoc = await loadingTask.promise;
+			totalPages = loadedDoc.numPages;
 			onTotalPagesLoaded?.(totalPages);
+			pdfDoc = loadedDoc;
 			isLoading = false;
-
-			if (readMode === 'scroll') {
-				await buildScrollView();
-			} else {
-				await renderPage(currentPage);
-			}
+			await tick();
 			onReady?.();
+
+			// 1. Ekstraksi dan resolusi outline bawaan PDF
+			let outlineDetected = false;
+			try {
+				const outline = await loadedDoc.getOutline();
+				if (Array.isArray(outline) && outline.length > 0) {
+					const resolvedToc: TableOfContentItem[] = [];
+					for (const item of outline) {
+						let pageNum = 1;
+						if (item.dest) {
+							try {
+								let dest: any = item.dest;
+								if (typeof dest === 'string') {
+									dest = await loadedDoc.getDestination(dest);
+								}
+								if (Array.isArray(dest)) {
+									const pageIndex = await loadedDoc.getPageIndex(dest[0]);
+									pageNum = pageIndex + 1;
+								}
+							} catch {
+								/* dest resolve opsional */
+							}
+						}
+						const cleanT = item.title
+							?.replace(/[\s.-_–—·•…]+$/, '')
+							?.replace(/\s+/g, ' ')
+							?.trim();
+						if (cleanT) {
+							resolvedToc.push({
+								title: cleanT,
+								page: pageNum
+							});
+						}
+					}
+					if (resolvedToc.length > 0) {
+						outlineDetected = true;
+						onTocLoaded?.(resolvedToc);
+					}
+				}
+			} catch {
+				/* outline opsional */
+			}
+
+			// 2. Koreksi offset halaman otomatis jika Daftar Isi berasal dari database/teks
+			if (!outlineDetected && toc && toc.length > 0 && onTocLoaded) {
+				const firstCh = toc.find((it) => /^BAB\s+(I|1)\b/i.test(it.title));
+				if (firstCh && firstCh.page <= 2 && totalPages > 5) {
+					try {
+						for (let p = 1; p <= Math.min(25, totalPages); p++) {
+							const page = await loadedDoc.getPage(p);
+							const content = await page.getTextContent();
+							const text = content.items.map((it: any) => it.str).join(' ');
+							if (/\bBAB\s+(I|1)\b/i.test(text) && !/\.{4,}\s*\d+/i.test(text)) {
+								const offset = p - firstCh.page;
+								if (offset > 0) {
+									const adjustedToc = toc.map((it) => ({
+										...it,
+										title: it.title
+											.replace(/[\s.-_–—·•…]+$/, '')
+											.replace(/\s+/g, ' ')
+											.trim(),
+										page: Math.min(totalPages, it.page + offset)
+									}));
+									onTocLoaded(adjustedToc);
+								}
+								break;
+							}
+						}
+					} catch {
+						/* best effort */
+					}
+				}
+			}
 		} catch (e: any) {
 			isLoading = false;
 			error = `Gagal memuat PDF: ${e.message ?? 'Terjadi kesalahan tidak dikenal.'}`;
@@ -99,59 +174,100 @@
 
 	// ── Paged mode render ────────────────────────────────────────────────────
 	async function renderPage(pageNum: number) {
-		if (!pdfDoc || !canvasEl) return;
+		if (!pdfDoc) return;
+		if (!canvasEl) {
+			await tick();
+			if (!canvasEl) return;
+		}
+
+		const currentSeq = ++renderSeq;
 		renderPending = true;
 
-		// Cancel any in-flight render
-		try {
-			await renderTask?.cancel();
-			await renderTask2?.cancel();
-		} catch {
-			/* ignore */
+		// Cancel any in-flight render safely
+		if (renderTask) {
+			try {
+				renderTask.cancel();
+				await renderTask.promise;
+			} catch {
+				/* ignore cancellation */
+			}
+			renderTask = null;
+		}
+		if (renderTask2) {
+			try {
+				renderTask2.cancel();
+				await renderTask2.promise;
+			} catch {
+				/* ignore cancellation */
+			}
+			renderTask2 = null;
 		}
 
 		try {
-			const page = await pdfDoc.getPage(pageNum);
+			const targetPage = Math.max(1, Math.min(pageNum, totalPages || 1));
+			const page = await pdfDoc.getPage(targetPage);
+			if (currentSeq !== renderSeq) return;
+
 			const pixelRatio = window.devicePixelRatio || 1;
 			const scale = (zoom / 100) * pixelRatio;
 			const viewport = page.getViewport({ scale });
 
 			// Primary canvas
 			const ctx = canvasEl.getContext('2d')!;
-			canvasEl.width = viewport.width;
-			canvasEl.height = viewport.height;
-			canvasEl.style.width = `${viewport.width / pixelRatio}px`;
-			canvasEl.style.height = `${viewport.height / pixelRatio}px`;
+			canvasEl.width = Math.floor(viewport.width);
+			canvasEl.height = Math.floor(viewport.height);
+			canvasEl.style.width = `${Math.floor(viewport.width / pixelRatio)}px`;
+			canvasEl.style.height = `${Math.floor(viewport.height / pixelRatio)}px`;
 
-			renderTask = page.render({ canvasContext: ctx, viewport });
+			// Fill solid white background so transparent PDFs render cleanly
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+
+			renderTask = page.render({ canvasContext: ctx, viewport, canvas: canvasEl });
 			await renderTask.promise;
+			if (currentSeq !== renderSeq) return;
 
 			// Two-page spread — render the next page if available
-			if (twoPageSpread && canvas2El && pageNum < totalPages) {
-				const page2 = await pdfDoc.getPage(pageNum + 1);
+			if (twoPageSpread && canvas2El && targetPage < totalPages) {
+				const page2 = await pdfDoc.getPage(targetPage + 1);
+				if (currentSeq !== renderSeq) return;
 				const vp2 = page2.getViewport({ scale });
 				const ctx2 = canvas2El.getContext('2d')!;
-				canvas2El.width = vp2.width;
-				canvas2El.height = vp2.height;
-				canvas2El.style.width = `${vp2.width / pixelRatio}px`;
-				canvas2El.style.height = `${vp2.height / pixelRatio}px`;
-				renderTask2 = page2.render({ canvasContext: ctx2, viewport: vp2 });
+				canvas2El.width = Math.floor(vp2.width);
+				canvas2El.height = Math.floor(vp2.height);
+				canvas2El.style.width = `${Math.floor(vp2.width / pixelRatio)}px`;
+				canvas2El.style.height = `${Math.floor(vp2.height / pixelRatio)}px`;
+
+				ctx2.fillStyle = '#ffffff';
+				ctx2.fillRect(0, 0, canvas2El.width, canvas2El.height);
+
+				renderTask2 = page2.render({ canvasContext: ctx2, viewport: vp2, canvas: canvas2El });
 				await renderTask2.promise;
 			}
 
-			onPageChange?.(pageNum);
+			if (currentSeq === renderSeq) {
+				onPageChange?.(targetPage);
+			}
 		} catch (e: any) {
-			if (e?.name !== 'RenderingCancelledException') {
+			if (e?.name !== 'RenderingCancelledException' && currentSeq === renderSeq) {
+				console.error('PDF render error:', e);
 				error = `Gagal merender halaman ${pageNum}.`;
 			}
 		} finally {
-			renderPending = false;
+			if (currentSeq === renderSeq) {
+				renderPending = false;
+			}
 		}
 	}
 
 	// ── Scroll mode ──────────────────────────────────────────────────────────
 	async function buildScrollView() {
-		if (!pdfDoc || !scrollContainerEl) return;
+		if (!pdfDoc) return;
+		if (!scrollContainerEl) {
+			await tick();
+			if (!scrollContainerEl) return;
+		}
+
 		scrollContainerEl.innerHTML = '';
 		pageCanvases = [];
 		renderedPages.clear();
@@ -159,27 +275,39 @@
 		const pixelRatio = window.devicePixelRatio || 1;
 		const scale = (zoom / 100) * pixelRatio;
 
-		// Create placeholder divs for all pages (lazy-render via IntersectionObserver)
-		for (let i = 1; i <= totalPages; i++) {
-			const page = await pdfDoc.getPage(i);
-			const viewport = page.getViewport({ scale });
+		// Fetch page 1 to get standard aspect ratio for high-performance lazy loading
+		let defaultWidth = 600 * (zoom / 100);
+		let defaultHeight = 840 * (zoom / 100);
+		try {
+			const p1 = await pdfDoc.getPage(1);
+			const vp1 = p1.getViewport({ scale });
+			defaultWidth = vp1.width / pixelRatio;
+			defaultHeight = vp1.height / pixelRatio;
+		} catch {
+			/* fallback to standard A4 */
+		}
 
+		// Create placeholder wrappers for all pages
+		for (let i = 1; i <= totalPages; i++) {
 			const wrapper = document.createElement('div');
 			wrapper.className = 'pdf-page-wrapper';
 			wrapper.dataset.pageNum = String(i);
 			wrapper.style.cssText = `
 				position: relative;
-				width: ${viewport.width / pixelRatio}px;
-				margin: 0 auto 24px;
+				width: ${Math.floor(defaultWidth)}px;
+				min-height: ${Math.floor(defaultHeight)}px;
+				margin: 0 auto 28px;
 			`;
 
 			const canvas = document.createElement('canvas');
-			canvas.width = viewport.width;
-			canvas.height = viewport.height;
-			canvas.style.width = `${viewport.width / pixelRatio}px`;
-			canvas.style.height = `${viewport.height / pixelRatio}px`;
+			canvas.width = Math.floor(defaultWidth * pixelRatio);
+			canvas.height = Math.floor(defaultHeight * pixelRatio);
+			canvas.style.width = `${Math.floor(defaultWidth)}px`;
+			canvas.style.height = `${Math.floor(defaultHeight)}px`;
 			canvas.style.display = 'block';
-			// Anti-copy
+			canvas.style.background = '#ffffff';
+			canvas.style.borderRadius = '2px';
+			canvas.style.boxShadow = '2px 4px 20px rgba(42,26,22,0.22)';
 			canvas.style.pointerEvents = 'none';
 			canvas.style.userSelect = 'none';
 
@@ -191,7 +319,7 @@
 				font-family: 'IBM Plex Mono', monospace;
 				font-size: 11px;
 				color: #6B5A4E;
-				padding: 6px 0;
+				padding: 8px 0 0;
 				letter-spacing: 0.06em;
 			`;
 			label.textContent = `— ${i} —`;
@@ -219,7 +347,7 @@
 					}
 				});
 			},
-			{ threshold: 0.4 }
+			{ threshold: 0.25, rootMargin: '300px 0px' }
 		);
 
 		scrollContainerEl.querySelectorAll('.pdf-page-wrapper').forEach((el) => {
@@ -236,9 +364,15 @@
 			const viewport = page.getViewport({ scale });
 			const canvas = pageCanvases[pageNum];
 			const ctx = canvas.getContext('2d')!;
-			canvas.width = viewport.width;
-			canvas.height = viewport.height;
-			await page.render({ canvasContext: ctx, viewport }).promise;
+			canvas.width = Math.floor(viewport.width);
+			canvas.height = Math.floor(viewport.height);
+			canvas.style.width = `${Math.floor(viewport.width / pixelRatio)}px`;
+			canvas.style.height = `${Math.floor(viewport.height / pixelRatio)}px`;
+
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 		} catch {
 			/* silently skip cancelled renders */
 		}
@@ -259,7 +393,7 @@
 				const textContent = await page.getTextContent();
 				const text = textContent.items.map((item: any) => item.str).join(' ');
 				const lowerText = text.toLowerCase();
-				let idx = lowerText.indexOf(q);
+				const idx = lowerText.indexOf(q);
 				if (idx !== -1) {
 					const start = Math.max(0, idx - 40);
 					const snippet = '...' + text.slice(start, start + 120) + '...';
@@ -302,33 +436,32 @@
 
 	// ── Effects ──────────────────────────────────────────────────────────────
 	$effect(() => {
-		if (src) loadPdf();
-	});
-
-	$effect(() => {
-		if (!pdfDoc || isLoading) return;
-		if (readMode === 'paged') {
-			renderPage(currentPage);
-		} else {
-			renderedPages.clear();
-			buildScrollView();
+		if (src) {
+			void loadPdf();
 		}
 	});
 
 	$effect(() => {
-		// Zoom changed — re-render
-		if (!pdfDoc || isLoading) return;
-		if (readMode === 'paged') {
-			renderPage(currentPage);
+		// Reactive dependencies
+		const doc = pdfDoc;
+		const page = currentPage;
+		const _z = zoom;
+		const mode = readMode;
+		const _spread = twoPageSpread;
+		const loading = isLoading;
+
+		if (!doc || loading) return;
+
+		if (mode === 'paged') {
+			void renderPage(page);
 		} else {
-			renderedPages.clear();
-			buildScrollView();
+			void buildScrollView();
 		}
 	});
 
 	$effect(() => {
 		if (searchQuery !== undefined) {
-			performSearch(searchQuery);
+			void performSearch(searchQuery);
 		}
 	});
 
@@ -391,6 +524,7 @@
 				<div class="page-canvas-wrap relative shrink-0" style="pointer-events: none;">
 					<canvas
 						bind:this={canvasEl}
+						style="background: #ffffff;"
 						class="block rounded-sm shadow-[2px_4px_20px_rgba(42,26,22,0.22)]"
 					></canvas>
 					{#if renderPending}
@@ -405,6 +539,7 @@
 					<div class="page-canvas-wrap relative shrink-0" style="pointer-events: none;">
 						<canvas
 							bind:this={canvas2El}
+							style="background: #ffffff;"
 							class="block rounded-sm shadow-[2px_4px_20px_rgba(42,26,22,0.22)]"
 						></canvas>
 					</div>

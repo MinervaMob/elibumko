@@ -8,6 +8,8 @@ const COVERS_DIR = join(process.cwd(), 'storage', 'covers');
 const MIME_TYPES: Record<string, string> = {
 	'.pdf': 'application/pdf',
 	'.epub': 'application/epub+zip',
+	'.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+	'.doc': 'application/msword',
 	'.jpg': 'image/jpeg',
 	'.jpeg': 'image/jpeg',
 	'.png': 'image/png',
@@ -47,20 +49,28 @@ class MediaService {
 	}
 
 	/**
-	 * Simpan berkas dokumen buku (PDF atau EPUB)
+	 * Simpan berkas dokumen buku (PDF, EPUB, atau DOCX)
 	 */
 	async saveDocument(
 		fileName: string,
 		buffer: Buffer
-	): Promise<{ filePath: string; fileName: string; size: number; fileType: 'pdf' | 'epub' }> {
+	): Promise<{
+		filePath: string;
+		fileName: string;
+		size: number;
+		fileType: 'pdf' | 'epub' | 'docx';
+	}> {
 		await this.ensureDirs();
 
 		const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-		if (!['.pdf', '.epub'].includes(ext)) {
-			throw new Error('Format berkas dokumen tidak didukung. Gunakan .pdf atau .epub');
+		if (!['.pdf', '.epub', '.docx', '.doc'].includes(ext)) {
+			throw new Error('Format berkas dokumen tidak didukung. Gunakan .pdf, .docx, atau .epub');
 		}
 
-		const fileType = ext === '.epub' ? 'epub' : 'pdf';
+		let fileType: 'pdf' | 'epub' | 'docx' = 'pdf';
+		if (ext === '.epub') fileType = 'epub';
+		else if (ext === '.docx' || ext === '.doc') fileType = 'docx';
+
 		const rawBase = fileName.replace(/\.[^/.]+$/, '');
 		const safeName = `${sanitizeFileName(rawBase)}-${Date.now()}${ext}`;
 		const filePath = join(BOOKS_DIR, safeName);
