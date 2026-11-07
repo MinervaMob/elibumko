@@ -3,6 +3,7 @@ export { categoryService, CategoryService } from './category.service';
 export { mediaService, type StorageUsageReport } from './media.service';
 export { activityService, ActivityService } from './activity.service';
 export { statsService, StatsService, type AdminStats } from './stats.service';
+export { settingsService, SettingsService } from './settings.service';
 export {
 	documentParserService,
 	DocumentParserService,

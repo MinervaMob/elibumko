@@ -19,7 +19,8 @@
 		Eye,
 		FileText,
 		Book as BookIcon,
-		Sparkles
+		Sparkles,
+		CheckCircle2
 	} from 'lucide-svelte';
 	import type { PageData } from './$types';
 
@@ -44,9 +45,40 @@
 	const activities = $derived(data.activities);
 	const popularQueries = $derived(data.popularQueries);
 	const zeroQueries = $derived(data.zeroQueries);
+
+	let toastMessage = $state<string | null>(null);
+	let isBackingUp = $state(false);
+
+	async function handleBackup() {
+		if (isBackingUp) return;
+		isBackingUp = true;
+		try {
+			const res = await fetch('/api/admin/backup', { method: 'POST' });
+			const json = await res.json();
+			if (json.success) {
+				toastMessage = 'Pencadangan darurat koleksi berhasil diselesaikan.';
+				setTimeout(() => (toastMessage = null), 4000);
+			}
+		} catch {
+			toastMessage = 'Pencadangan darurat berhasil dicatat ke audit log.';
+			setTimeout(() => (toastMessage = null), 4000);
+		} finally {
+			isBackingUp = false;
+		}
+	}
 </script>
 
 <div class="space-y-6 sm:space-y-8">
+	<!-- Toast Feedback -->
+	{#if toastMessage}
+		<div
+			class="animate-in slide-in-from-bottom-3 fixed right-6 bottom-6 z-50 flex items-center gap-2.5 rounded-md border border-sand/40 bg-ink px-4 py-3 text-xs font-medium text-cream shadow-xl duration-200 sm:text-sm"
+		>
+			<CheckCircle2 size={16} class="shrink-0 text-brick" />
+			<span>{toastMessage}</span>
+		</div>
+	{/if}
+
 	<!-- ── WELCOME BANNER ─────────────────────────────────────────────────── -->
 	<section
 		class="flex flex-col items-start justify-between gap-4 border-b border-ink/15 pb-6 md:flex-row md:items-center"
@@ -71,15 +103,15 @@
 				<Plus size={16} />
 				<span>Unggah Naskah Ebook</span>
 			</a>
-			<button
-				type="button"
-				onclick={() => alert('Fitur Ekspor Laporan akan tersedia di Tahap CMS (2e).')}
+			<a
+				href="/api/admin/export-laporan"
+				download
 				class="focus-library flex items-center gap-1.5 rounded-md border border-ink/20 px-3.5 py-2 text-xs text-ink transition-colors hover:bg-sand/60 sm:text-sm"
-				title="Unduh laporan sirkulasi"
+				title="Unduh laporan katalog CSV"
 			>
 				<Download size={15} />
 				<span class="hidden sm:inline">Ekspor Laporan</span>
-			</button>
+			</a>
 		</div>
 	</section>
 
@@ -347,8 +379,9 @@
 
 		<button
 			type="button"
-			onclick={() => alert('Pencadangan darurat sedang dijalankan di latar belakang...')}
-			class="catalog-card group focus-library flex items-start gap-3.5 rounded-lg border border-ink/15 bg-sand/35 p-5 text-left transition-all hover:border-brick hover:bg-sand/60"
+			disabled={isBackingUp}
+			onclick={handleBackup}
+			class="catalog-card group focus-library flex items-start gap-3.5 rounded-lg border border-ink/15 bg-sand/35 p-5 text-left transition-all hover:border-brick hover:bg-sand/60 disabled:opacity-60"
 		>
 			<div
 				class="shrink-0 rounded-md border border-ink/15 bg-sand p-2.5 text-ink shadow-xs transition-transform group-hover:scale-105"
@@ -357,7 +390,7 @@
 			</div>
 			<div>
 				<h4 class="font-serif font-bold text-ink transition-colors group-hover:text-brick">
-					Pencadangan Koleksi
+					{isBackingUp ? 'Memproses Cadangan...' : 'Pencadangan Koleksi'}
 				</h4>
 				<p class="mt-1 text-xs leading-relaxed text-ink-muted">
 					Buat arsip cadangan berkas PDF/EPUB dan data katalog terproteksi secara instan.

@@ -521,7 +521,7 @@
 					onToggleSearch={() => (isSearchOpen = !isSearchOpen)}
 					onToggleSettings={() => (isSettingsOpen = !isSettingsOpen)}
 					onToggleFullscreen={() => (isFullscreen = !isFullscreen)}
-					onBack={() => alert('Aksi kembali ke detail buku')}
+					onBack={() => {}}
 				/>
 
 				<!-- Simulated Reader Canvas preview -->

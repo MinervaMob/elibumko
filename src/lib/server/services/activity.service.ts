@@ -1,4 +1,5 @@
 import { repository } from '../db/repository';
+import { DEFAULT_LIBRARIAN } from '../auth-constants';
 import type { ActivityLogItem, SearchLogItem } from '#lib/types';
 
 export class ActivityService {
@@ -17,7 +18,7 @@ export class ActivityService {
 		description: string,
 		targetTitle?: string,
 		targetSlug?: string,
-		userName: string = 'Drs. H. Mulyadi, M.Pd.'
+		userName: string = DEFAULT_LIBRARIAN.name
 	): Promise<void> {
 		await repository.addActivityLog(action, description, targetTitle, targetSlug, userName);
 	}

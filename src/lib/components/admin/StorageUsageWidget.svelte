@@ -21,19 +21,21 @@
 	const stats = $derived<Stats>(
 		customStats ??
 			page.data?.stats ?? {
-				totalBooks: 28,
-				totalPdfBooks: 26,
-				totalEpubBooks: 2,
-				storageUsedGB: 14.8,
+				totalBooks: 0,
+				totalPdfBooks: 0,
+				totalEpubBooks: 0,
+				storageUsedGB: 0,
 				storageLimitGB: 50,
-				storagePercent: 29.6
+				storagePercent: 0
 			}
 	);
 
 	const pdfPercent = $derived(
-		stats.totalBooks > 0 ? Math.round((stats.totalPdfBooks / stats.totalBooks) * 100) : 80
+		stats.totalBooks > 0 ? Math.round((stats.totalPdfBooks / stats.totalBooks) * 100) : 100
 	);
 	const epubPercent = $derived(100 - pdfPercent);
+	const pdfRatio = $derived(stats.totalBooks > 0 ? stats.totalPdfBooks / stats.totalBooks : 1);
+	const epubRatio = $derived(1 - pdfRatio);
 	const remainingGB = $derived(Math.max(0, stats.storageLimitGB - stats.storageUsedGB).toFixed(1));
 </script>
 
@@ -77,14 +79,14 @@
 			<!-- PDF portion -->
 			<div
 				class="h-full rounded-l-full bg-brick transition-all duration-500"
-				style="width: {stats.storagePercent * 0.8}%"
-				title="Naskah PDF: {(stats.storageUsedGB * 0.8).toFixed(1)} GB"
+				style="width: {stats.storagePercent * pdfRatio}%"
+				title="Naskah PDF: {(stats.storageUsedGB * pdfRatio).toFixed(1)} GB"
 			></div>
 			<!-- EPUB portion -->
 			<div
 				class="h-full bg-terracotta transition-all duration-500"
-				style="width: {stats.storagePercent * 0.2}%"
-				title="Ebook EPUB: {(stats.storageUsedGB * 0.2).toFixed(1)} GB"
+				style="width: {stats.storagePercent * epubRatio}%"
+				title="Ebook EPUB: {(stats.storageUsedGB * epubRatio).toFixed(1)} GB"
 			></div>
 		</div>
 

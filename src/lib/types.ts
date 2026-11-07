@@ -76,3 +76,22 @@ export interface ReadingTrendPoint {
 	sessions: number;
 	pagesRead: number;
 }
+
+export interface LibraryProfile {
+	name: string;
+	institution: string;
+	title: string;
+	history: string;
+	vision: string;
+	mission: string[];
+	hoursWeekday: string;
+	hoursSaturday: string;
+	phone: string;
+	email: string;
+	address: string;
+	googleMapsUrl: string;
+}
+
+export interface LibrarySettings extends LibraryProfile {
+	storageLimitGB: number;
+}

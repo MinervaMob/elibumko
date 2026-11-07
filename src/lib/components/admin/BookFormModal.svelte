@@ -34,16 +34,16 @@
 	// Form State
 	let title = $state('');
 	let author = $state('');
-	let publisher = $state('UMKO Press');
-	let year = $state<number>(new Date().getFullYear());
-	let edition = $state('Edisi Pertama');
+	let publisher = $state('');
+	let year = $state<number | undefined>();
+	let edition = $state('');
 	let isbn = $state('');
 	let pages = $state<number | undefined>();
 	let language = $state('Bahasa Indonesia');
-	let classification = $state('370');
-	let ddcCode = $state('300');
-	let ddcName = $state('Ilmu Sosial & Pendidikan');
-	let category = $state('Pendidikan');
+	let classification = $state('');
+	let ddcCode = $state('');
+	let ddcName = $state('');
+	let category = $state('');
 	let tagInput = $state('');
 	let tags = $state<string[]>([]);
 	let synopsis = $state('');
@@ -53,7 +53,7 @@
 	let isUploadingCover = $state(false);
 
 	// TOC State
-	let tocItems = $state<TableOfContentItem[]>([{ title: 'Bab I: Pendahuluan', page: 1 }]);
+	let tocItems = $state<TableOfContentItem[]>([]);
 
 	// Upload State
 	let selectedFile: File | null = $state(null);
@@ -95,22 +95,22 @@
 				// Reset form for fresh create
 				title = '';
 				author = '';
-				publisher = 'UMKO Press';
-				year = new Date().getFullYear();
-				edition = 'Edisi Pertama';
+				publisher = '';
+				year = undefined;
+				edition = '';
 				isbn = '';
 				pages = undefined;
 				language = 'Bahasa Indonesia';
-				classification = '370';
-				ddcCode = '300';
-				ddcName = 'Ilmu Sosial & Pendidikan';
-				category = 'Pendidikan';
-				tags = ['Pendidikan', 'Akademik'];
+				classification = '';
+				ddcCode = '';
+				ddcName = '';
+				category = '';
+				tags = [];
 				synopsis = '';
 				isFeatured = false;
 				fileType = 'pdf';
 				coverUrl = null;
-				tocItems = [{ title: 'Bab I: Pendahuluan', page: 1 }];
+				tocItems = [];
 				selectedFile = null;
 				uploadProgress = 0;
 				isUploading = false;

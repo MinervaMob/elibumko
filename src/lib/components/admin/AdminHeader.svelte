@@ -25,9 +25,9 @@
 	const stats = $derived<Stats>(
 		customStats ??
 			page.data?.stats ?? {
-				storageUsedGB: 14.8,
+				storageUsedGB: 0,
 				storageLimitGB: 50,
-				storagePercent: 29.6
+				storagePercent: 0
 			}
 	);
 

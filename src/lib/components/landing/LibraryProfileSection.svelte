@@ -1,42 +1,17 @@
 <script lang="ts">
 	import { MapPin, Clock, Phone, Mail, Building } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import type { LibraryProfile } from '#lib/types';
 
 	interface Props {
-		profile?: {
-			title?: string;
-			history?: string;
-			vision?: string;
-			mission?: string[];
-			hoursWeekday?: string;
-			hoursSaturday?: string;
-			phone?: string;
-			email?: string;
-			address?: string;
-			googleMapsUrl?: string;
-		};
+		profile?: Partial<LibraryProfile>;
 	}
 
-	let {
-		profile = {
-			title: 'Unit Pelaksana Teknis Perpustakaan Universitas Muhammadiyah Kotabumi',
-			history:
-				'Perpustakaan Universitas Muhammadiyah Kotabumi bertransformasi dari pusat rujukan cetak konvensional menjadi ekosistem literasi hibrida terpadu. ElibUMKO hadir guna memastikan setiap mahasiswa dan dosen memiliki akses setara terhadap buku teks bermutu tinggi dan literatur ilmiah di mana saja.',
-			vision:
-				'Menjadi pusat sumber belajar dan rujukan ilmiah berbasis teknologi informasi yang unggul, berkarakter Islami, dan berdaya saing nasional pada tahun 2030.',
-			mission: [
-				'Menyediakan koleksi sumber pustaka digital bermutu dan relevan dengan kurikulum keilmuan perguruan tinggi.',
-				'Mengembangkan infrastruktur perpustakaan cerdas yang ramah pengguna, berkecepatan tinggi, dan terproteksi hak ciptanya.',
-				'Meningkatkan literasi riset dan publikasi ilmiah sivitas akademika Universitas Muhammadiyah Kotabumi.'
-			],
-			hoursWeekday: 'Senin – Jumat: 08.00 – 16.00 WIB',
-			hoursSaturday: 'Sabtu: 08.30 – 13.00 WIB (Minggu & Hari Libur Nasional Tutup)',
-			phone: '(0724) 22894',
-			email: 'perpustakaan@umko.ac.id',
-			address:
-				'Jl. Hasan Kepala Ratu No. 1052, Sindang Sari, Kec. Kotabumi, Kab. Lampung Utara, Lampung 34517',
-			googleMapsUrl: 'https://maps.google.com/?q=Universitas+Muhammadiyah+Kotabumi'
-		}
-	}: Props = $props();
+	let { profile: customProfile }: Props = $props();
+
+	const profile = $derived<Partial<LibraryProfile>>(
+		customProfile ?? (page.data?.profile as Partial<LibraryProfile> | undefined) ?? {}
+	);
 </script>
 
 <section id="profil" class="scroll-mt-16 border-t border-b border-sand-dark bg-sand py-16 sm:py-24">

@@ -48,13 +48,10 @@
 				'@type': 'Person',
 				name: book.author
 			},
-			publisher: {
-				'@type': 'Organization',
-				name: book.publisher ?? 'UMKO Press'
-			},
-			datePublished: String(book.year ?? '2024'),
-			isbn: book.isbn ?? '978-602-05-2418-4',
-			numberOfPages: book.pages ?? 300,
+			...(book.publisher ? { publisher: { '@type': 'Organization', name: book.publisher } } : {}),
+			...(book.year ? { datePublished: String(book.year) } : {}),
+			...(book.isbn ? { isbn: book.isbn } : {}),
+			...(book.pages ? { numberOfPages: book.pages } : {}),
 			inLanguage: book.language ?? 'id',
 			bookFormat: 'https://schema.org/EBook',
 			description: book.synopsis ?? ''
@@ -230,35 +227,30 @@
 					<div class="grid grid-cols-2 gap-x-6 gap-y-4 text-xs sm:grid-cols-3 sm:text-sm">
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Penerbit:</span>
-							<span class="mt-0.5 block font-medium text-ink">{book.publisher ?? 'UMKO Press'}</span
-							>
+							<span class="mt-0.5 block font-medium text-ink">{book.publisher || '-'}</span>
 						</div>
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Tahun Terbit:</span>
-							<span class="mt-0.5 block font-mono font-medium text-ink">{book.year ?? '2024'}</span>
+							<span class="mt-0.5 block font-mono font-medium text-ink">{book.year || '-'}</span>
 						</div>
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Edisi / Cetakan:</span>
-							<span class="mt-0.5 block font-medium text-ink"
-								>{book.edition ?? 'Edisi Pertama'}</span
-							>
+							<span class="mt-0.5 block font-medium text-ink">{book.edition || '-'}</span>
 						</div>
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Nomor Standar ISBN:</span>
-							<span class="mt-0.5 block font-mono font-medium text-ink"
-								>{book.isbn ?? '978-602-05-2418-4'}</span
-							>
+							<span class="mt-0.5 block font-mono font-medium text-ink">{book.isbn || '-'}</span>
 						</div>
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Jumlah Halaman:</span>
 							<span class="mt-0.5 block font-mono font-medium text-ink"
-								>{book.pages ?? 320} halaman</span
+								>{book.pages ? `${book.pages} halaman` : '-'}</span
 							>
 						</div>
 						<div>
 							<span class="block font-sans text-xs text-ink-muted">Bahasa Teks:</span>
 							<span class="mt-0.5 block font-medium text-ink"
-								>{book.language ?? 'Bahasa Indonesia'}</span
+								>{book.language || 'Bahasa Indonesia'}</span
 							>
 						</div>
 					</div>
@@ -269,8 +261,7 @@
 					<h3 class="mb-3 font-serif text-xl font-bold text-ink">Sinopsis Buku</h3>
 					<div class="prose max-w-none font-sans text-sm leading-relaxed text-ink sm:text-base">
 						<p class={!isSynopsisExpanded ? 'line-clamp-4' : ''}>
-							{book.synopsis ??
-								'Buku ini merupakan referensi akademik resmi yang diterbitkan untuk menunjang perkuliahan, riset keilmuan, dan penyusunan tugas akhir mahasiswa Universitas Muhammadiyah Kotabumi.'}
+							{book.synopsis || 'Sinopsis naskah belum dicatat dalam katalog perpustakaan.'}
 						</p>
 					</div>
 

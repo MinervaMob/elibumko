@@ -1,5 +1,5 @@
 import { pgTable, serial, integer, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
-import type { TableOfContentItem } from '#lib/types';
+import type { TableOfContentItem, LibrarySettings } from '#lib/types';
 
 export const books = pgTable('books', {
 	id: serial('id').primaryKey(),
@@ -55,6 +55,12 @@ export const searchLogs = pgTable('search_logs', {
 	query: text('query').notNull().unique(),
 	count: integer('count').default(1).notNull(),
 	resultsCount: integer('results_count').default(0).notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+export const librarySettings = pgTable('library_settings', {
+	key: text('key').primaryKey(),
+	data: jsonb('data').$type<LibrarySettings>().notNull(),
 	updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 

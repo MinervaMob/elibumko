@@ -1,12 +1,36 @@
 <script lang="ts">
-	import { ArrowLeft, HardDrive, Shield } from 'lucide-svelte';
-	import type { PageData } from './$types';
+	import {
+		ArrowLeft,
+		HardDrive,
+		Shield,
+		Save,
+		CheckCircle2,
+		AlertCircle,
+		Clock,
+		MapPin,
+		Phone,
+		Mail
+	} from 'lucide-svelte';
+	import { enhance } from '$app/forms';
+	import type { PageData, ActionData } from './$types';
 
 	interface Props {
 		data: PageData;
+		form: ActionData;
 	}
 
-	let { data }: Props = $props();
+	let { data, form }: Props = $props();
+
+	let isSubmitting = $state(false);
+	let toastMessage = $state<string | null>(null);
+
+	$effect(() => {
+		if (form?.success) {
+			toastMessage = form.message || 'Pengaturan berhasil disimpan.';
+			const timer = setTimeout(() => (toastMessage = null), 4000);
+			return () => clearTimeout(timer);
+		}
+	});
 </script>
 
 <svelte:head>
@@ -14,6 +38,16 @@
 </svelte:head>
 
 <div class="max-w-4xl space-y-6">
+	<!-- Toast Feedback -->
+	{#if toastMessage}
+		<div
+			class="animate-in slide-in-from-bottom-3 fixed right-6 bottom-6 z-50 flex items-center gap-2.5 rounded-md border border-sand/40 bg-ink px-4 py-3 text-xs font-medium text-cream shadow-xl duration-200 sm:text-sm"
+		>
+			<CheckCircle2 size={16} class="shrink-0 text-brick" />
+			<span>{toastMessage}</span>
+		</div>
+	{/if}
+
 	<div class="flex items-center justify-between gap-4 border-b border-ink/15 pb-4">
 		<div class="flex items-center gap-3">
 			<a
@@ -28,19 +62,39 @@
 					Pengaturan Sistem Perpustakaan
 				</h2>
 				<p class="mt-0.5 text-xs text-ink-muted">
-					Konfigurasi penyimpanan terproteksi, batas kuota, dan preferensi institusi
+					Konfigurasi penyimpanan terproteksi, profil institusi, dan parameter layanan
 				</p>
 			</div>
 		</div>
 
 		<span
-			class="rounded-sm border border-terracotta/30 bg-terracotta/15 px-2.5 py-1 font-mono text-[11px] font-semibold text-terracotta"
+			class="flex items-center gap-1.5 rounded-sm border border-emerald-600/30 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-emerald-800"
 		>
-			Tahap CMS 2(e) Siap Dibangun
+			<CheckCircle2 size={13} class="text-emerald-700" />
+			<span>Tersimpan & Terintegrasi</span>
 		</span>
 	</div>
 
-	<div class="space-y-6">
+	{#if form?.error}
+		<div
+			class="flex items-center gap-2 rounded-md border border-brick/30 bg-brick/10 p-3 text-xs text-brick sm:text-sm"
+		>
+			<AlertCircle size={16} class="shrink-0" />
+			<span>{form.error}</span>
+		</div>
+	{/if}
+
+	<form
+		method="POST"
+		use:enhance={() => {
+			isSubmitting = true;
+			return async ({ update }) => {
+				isSubmitting = false;
+				await update();
+			};
+		}}
+		class="space-y-6"
+	>
 		<!-- Institution identity -->
 		<div class="catalog-card space-y-4 rounded-lg border border-ink/15 bg-sand/30 p-5 sm:p-6">
 			<div class="flex items-center gap-2 border-b border-ink/10 pb-2">
@@ -50,43 +104,115 @@
 
 			<div class="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2 sm:text-sm">
 				<div>
-					<label for="lib-name" class="mb-1 block font-semibold text-ink">Nama Perpustakaan</label>
+					<label for="lib-name" class="mb-1 block font-semibold text-ink">
+						Nama Perpustakaan <span class="text-brick">*</span>
+					</label>
 					<input
 						id="lib-name"
+						name="name"
 						type="text"
-						readonly
-						value="ElibUMKO (Perpustakaan Digital UMKO)"
-						class="w-full rounded-sm border border-ink/15 bg-sand/40 px-3 py-2 font-sans text-ink"
+						required
+						value={data.settings.name}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
 					/>
 				</div>
 				<div>
-					<label for="lib-inst" class="mb-1 block font-semibold text-ink">Institusi Naungan</label>
+					<label for="lib-inst" class="mb-1 block font-semibold text-ink">
+						Institusi Naungan <span class="text-brick">*</span>
+					</label>
 					<input
 						id="lib-inst"
+						name="institution"
 						type="text"
-						readonly
-						value="Universitas Muhammadiyah Kotabumi"
-						class="w-full rounded-sm border border-ink/15 bg-sand/40 px-3 py-2 font-sans text-ink"
+						required
+						value={data.settings.institution}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
+					/>
+				</div>
+				<div class="sm:col-span-2">
+					<label for="lib-title" class="mb-1 block font-semibold text-ink">
+						Nama Unit / UPT Pelaksana
+					</label>
+					<input
+						id="lib-title"
+						name="title"
+						type="text"
+						value={data.settings.title}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
 					/>
 				</div>
 				<div>
-					<label for="lib-email" class="mb-1 block font-semibold text-ink">Email Layanan</label>
+					<label for="lib-email" class="mb-1 block font-semibold text-ink">
+						<Mail size={13} class="mr-1 inline text-brick" />
+						Email Layanan
+					</label>
 					<input
 						id="lib-email"
+						name="email"
 						type="email"
-						readonly
-						value="perpustakaan@umko.ac.id"
-						class="w-full rounded-sm border border-ink/15 bg-sand/40 px-3 py-2 font-sans text-ink"
+						value={data.settings.email}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
 					/>
 				</div>
 				<div>
-					<label for="lib-loc" class="mb-1 block font-semibold text-ink">Lokasi Kampus</label>
+					<label for="lib-phone" class="mb-1 block font-semibold text-ink">
+						<Phone size={13} class="mr-1 inline text-brick" />
+						Telepon Layanan
+					</label>
 					<input
-						id="lib-loc"
+						id="lib-phone"
+						name="phone"
 						type="text"
-						readonly
-						value="Kotabumi, Lampung Utara, Lampung"
-						class="w-full rounded-sm border border-ink/15 bg-sand/40 px-3 py-2 font-sans text-ink"
+						value={data.settings.phone}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
+					/>
+				</div>
+				<div class="sm:col-span-2">
+					<label for="lib-address" class="mb-1 block font-semibold text-ink">
+						<MapPin size={13} class="mr-1 inline text-brick" />
+						Alamat Fisik Kampus
+					</label>
+					<input
+						id="lib-address"
+						name="address"
+						type="text"
+						value={data.settings.address}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
+					/>
+				</div>
+			</div>
+		</div>
+
+		<!-- Operational hours -->
+		<div class="catalog-card space-y-4 rounded-lg border border-ink/15 bg-sand/30 p-5 sm:p-6">
+			<div class="flex items-center gap-2 border-b border-ink/10 pb-2">
+				<Clock size={18} class="text-brick" />
+				<h3 class="font-serif text-base font-bold text-ink">Jadwal & Jam Operasional</h3>
+			</div>
+
+			<div class="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2 sm:text-sm">
+				<div>
+					<label for="hours-weekday" class="mb-1 block font-semibold text-ink">
+						Jam Layanan Hari Kerja (Senin – Jumat)
+					</label>
+					<input
+						id="hours-weekday"
+						name="hoursWeekday"
+						type="text"
+						value={data.settings.hoursWeekday}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
+					/>
+				</div>
+				<div>
+					<label for="hours-saturday" class="mb-1 block font-semibold text-ink">
+						Jam Layanan Akhir Pekan (Sabtu)
+					</label>
+					<input
+						id="hours-saturday"
+						name="hoursSaturday"
+						type="text"
+						value={data.settings.hoursSaturday}
+						class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-sans text-ink focus:border-brick focus:outline-hidden"
 					/>
 				</div>
 			</div>
@@ -117,21 +243,23 @@
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div>
-						<label for="storage-limit" class="mb-1 block font-semibold text-ink"
-							>Batas Kuota Penyimpanan (GB)</label
-						>
+						<label for="storage-limit" class="mb-1 block font-semibold text-ink">
+							Batas Kuota Penyimpanan (GB)
+						</label>
 						<input
 							id="storage-limit"
+							name="storageLimitGB"
 							type="number"
-							readonly
-							value={data.stats.storageLimitGB}
-							class="w-full rounded-sm border border-ink/15 bg-sand/40 px-3 py-2 font-mono text-ink"
+							min="10"
+							max="1000"
+							value={data.settings.storageLimitGB}
+							class="w-full rounded-sm border border-ink/15 bg-cream px-3 py-2 font-mono text-ink focus:border-brick focus:outline-hidden"
 						/>
 					</div>
 					<div>
-						<label for="storage-used" class="mb-1 block font-semibold text-ink"
-							>Kapasitas Terpakai Saat Ini</label
-						>
+						<label for="storage-used" class="mb-1 block font-semibold text-ink">
+							Kapasitas Terpakai Saat Ini
+						</label>
 						<input
 							id="storage-used"
 							type="text"
@@ -143,5 +271,17 @@
 				</div>
 			</div>
 		</div>
-	</div>
+
+		<!-- Save Button -->
+		<div class="flex justify-end pt-2">
+			<button
+				type="submit"
+				disabled={isSubmitting}
+				class="focus-library flex items-center gap-2 rounded-md bg-brick px-5 py-2.5 text-sm font-semibold text-cream shadow-xs transition-all hover:bg-brick/90 disabled:opacity-50"
+			>
+				<Save size={16} />
+				<span>{isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
+			</button>
+		</div>
+	</form>
 </div>

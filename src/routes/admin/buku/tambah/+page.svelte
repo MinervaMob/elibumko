@@ -39,18 +39,18 @@
 	// Form State
 	let title = $state('');
 	let author = $state('');
-	let publisher = $state('UMKO Press');
-	let year = $state<number>(new Date().getFullYear());
-	let edition = $state('Edisi Pertama');
+	let publisher = $state('');
+	let year = $state<number | undefined>(undefined);
+	let edition = $state('');
 	let isbn = $state('');
 	let pages = $state<number | undefined>(undefined);
 	let language = $state('Bahasa Indonesia');
-	let classification = $state('370');
-	let ddcCode = $state('300');
-	let ddcName = $state('Ilmu Sosial, Hukum & Pendidikan');
-	let category = $state('Pendidikan & Pedagogi');
+	let classification = $state('');
+	let ddcCode = $state('');
+	let ddcName = $state('');
+	let category = $state('');
 	let tagInput = $state('');
-	let tags = $state<string[]>(['Pendidikan & Pedagogi', 'Buku Ajar', 'UMKO']);
+	let tags = $state<string[]>([]);
 	let synopsis = $state('');
 	let isFeatured = $state(false);
 	let fileType = $state<'pdf' | 'epub' | 'docx'>('pdf');
@@ -60,13 +60,13 @@
 	// 'page1': Otomatis dari lembar pertama dokumen
 	// 'typography': Sampul tipografi resmi UMKO (fallback/opsional)
 	// 'custom': Unggah sampul grafis kustom
-	let coverSource = $state<'page1' | 'typography' | 'custom'>('typography');
+	let coverSource = $state<'page1' | 'typography' | 'custom'>('page1');
 	let extractedPageCoverUrl = $state<string | null>(null);
 	let customCoverUrl = $state<string | null>(null);
 	let isExtractingCover = $state(false);
 
 	// TOC State
-	let tocItems = $state<TableOfContentItem[]>([{ title: 'Bab I: Pendahuluan', page: 1 }]);
+	let tocItems = $state<TableOfContentItem[]>([]);
 
 	// Upload & Extraction State
 	let selectedFile = $state<File | null>(null);

@@ -23,18 +23,28 @@
 
 	let { isOpen = false, onClose, user }: Props = $props();
 
-	const userName = $derived(user?.name || page.data.user?.name || 'Drs. H. Mulyadi, M.Pd.');
-	const userRole = $derived('Pustakawan Utama');
+	const userName = $derived(user?.name || page.data.user?.name || 'Pustakawan');
+	const userRole = $derived(page.data.user?.role || 'Pustakawan');
 	const userInitials = $derived.by(() => {
 		const clean = userName.replace(/^(Drs\.|Dr\.|Prof\.|H\.|Hj\.)\s+/gi, '').trim();
 		const words = clean.split(/\s+/).filter(Boolean);
 		if (words.length >= 2) {
 			return `${words[0][0]}${words[1][0]}`.toUpperCase();
 		}
-		return clean.slice(0, 2).toUpperCase() || 'PU';
+		return clean.slice(0, 2).toUpperCase() || 'P';
 	});
 
-	const navItems = [
+	const totalBooksBadge = $derived.by(() => {
+		const count = page.data?.stats?.totalBooks ?? page.data?.books?.length;
+		return count !== undefined ? count.toLocaleString('id-ID') : undefined;
+	});
+
+	const ddcCountBadge = $derived.by(() => {
+		const count = page.data?.ddcTree?.length ?? page.data?.categories?.length ?? 10;
+		return count.toString();
+	});
+
+	const navItems = $derived([
 		{
 			label: 'Ringkasan',
 			href: '/admin',
@@ -45,13 +55,13 @@
 			label: 'Manajemen Buku',
 			href: '/admin/buku',
 			icon: BookOpen,
-			badge: '1.428'
+			badge: totalBooksBadge
 		},
 		{
 			label: 'Klasifikasi DDC',
 			href: '/admin/kategori',
 			icon: FolderTree,
-			badge: '10'
+			badge: ddcCountBadge
 		},
 		{
 			label: 'Log & Aktivitas',
@@ -65,7 +75,7 @@
 			icon: Settings,
 			badge: undefined
 		}
-	];
+	]);
 
 	function isActive(href: string): boolean {
 		if (href === '/admin') {

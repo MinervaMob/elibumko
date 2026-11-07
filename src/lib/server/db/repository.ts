@@ -7,7 +7,8 @@ import type {
 	ClassificationNode,
 	TableOfContentItem,
 	ActivityLogItem,
-	SearchLogItem
+	SearchLogItem,
+	LibrarySettings
 } from '#lib/types';
 import {
 	INITIAL_BOOKS,
@@ -15,7 +16,8 @@ import {
 	INITIAL_CATEGORIES,
 	INITIAL_ACTIVITY_LOGS,
 	INITIAL_SEARCH_LOGS,
-	INITIAL_ZERO_SEARCH_LOGS
+	INITIAL_ZERO_SEARCH_LOGS,
+	INITIAL_LIBRARY_SETTINGS
 } from './seed-data';
 
 // Persistent in-memory fallback state initialized from seed data
@@ -23,6 +25,7 @@ let inMemoryBooks: BookData[] = [...INITIAL_BOOKS];
 const inMemoryActivities: ActivityLogItem[] = [...INITIAL_ACTIVITY_LOGS];
 const inMemorySearchLogs: SearchLogItem[] = [...INITIAL_SEARCH_LOGS];
 const inMemoryZeroSearchLogs: SearchLogItem[] = [...INITIAL_ZERO_SEARCH_LOGS];
+let inMemorySettings: LibrarySettings = { ...INITIAL_LIBRARY_SETTINGS };
 
 function slugify(text: string): string {
 	return text
@@ -472,5 +475,50 @@ export const repository = {
 				lastSearched: 'Baru saja'
 			});
 		}
+	},
+
+	async getLibrarySettings(): Promise<LibrarySettings> {
+		try {
+			const rows = await db
+				.select()
+				.from(schema.librarySettings)
+				.where(eq(schema.librarySettings.key, 'default'))
+				.limit(1);
+
+			if (rows.length > 0 && rows[0].data) {
+				return { ...inMemorySettings, ...rows[0].data };
+			}
+		} catch {
+			// Fallback to inMemorySettings
+		}
+		return inMemorySettings;
+	},
+
+	async updateLibrarySettings(updates: Partial<LibrarySettings>): Promise<LibrarySettings> {
+		inMemorySettings = {
+			...inMemorySettings,
+			...updates
+		};
+
+		try {
+			await db
+				.insert(schema.librarySettings)
+				.values({
+					key: 'default',
+					data: inMemorySettings,
+					updatedAt: new Date()
+				})
+				.onConflictDoUpdate({
+					target: schema.librarySettings.key,
+					set: {
+						data: inMemorySettings,
+						updatedAt: new Date()
+					}
+				});
+		} catch {
+			// Persisted in memory
+		}
+
+		return inMemorySettings;
 	}
 };

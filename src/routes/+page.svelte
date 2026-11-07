@@ -43,9 +43,9 @@
 		<PopularSection books={data.books} />
 
 		<!-- A1.7: Library Profile (Warm Sand background with history, vision/mission, service hours, contact) -->
-		<LibraryProfileSection />
+		<LibraryProfileSection profile={data.profile} />
 	</main>
 
 	<!-- A1.8: Footer (Deep ink / brown with links, contact, service hours, and copyright) -->
-	<Footer />
+	<Footer profile={data.profile} popularCategories={data.categories.slice(0, 5)} />
 </div>
