@@ -205,7 +205,7 @@
 		<a
 			href="/admin/profil"
 			onclick={onClose}
-			class="group focus-library flex items-center gap-3 rounded-md border border-ink/10 bg-sand/40 p-2 transition-all hover:border-brick/40 hover:bg-sand/70"
+			class="group flex items-center gap-3 rounded-md border border-ink/10 bg-sand/40 p-2 transition-all hover:border-brick/40 hover:bg-sand/70 focus-library"
 			title="Buka Pengaturan Profil Pustakawan"
 		>
 			<div
@@ -215,7 +215,7 @@
 			</div>
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-1">
-					<p class="truncate text-xs font-bold text-ink transition-colors group-hover:text-brick">
+					<p class="truncate text-xs font-bold text-ink group-hover:text-brick transition-colors">
 						{userName}
 					</p>
 					<span title="Pustakawan Terverifikasi"
@@ -242,13 +242,13 @@
 <!-- Logout Confirmation Dialog -->
 {#if isLogoutConfirmOpen}
 	<div
-		class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs duration-150"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="logout-title"
 	>
 		<div
-			class="catalog-card w-full max-w-sm space-y-4 rounded-lg border border-ink/15 bg-cream p-5 shadow-2xl"
+			class="catalog-card max-w-sm w-full rounded-lg border border-ink/15 bg-cream p-5 shadow-2xl space-y-4"
 		>
 			<div class="flex items-start gap-3.5">
 				<div
@@ -261,8 +261,7 @@
 						Konfirmasi Keluar Sistem
 					</h3>
 					<p class="mt-1 text-xs leading-relaxed text-ink-muted">
-						Apakah Anda yakin ingin mengakhiri sesi pustakawan saat ini? Anda perlu memasukkan
-						kredensial kembali untuk mengakses portal admin ElibUMKO.
+						Apakah Anda yakin ingin mengakhiri sesi pustakawan saat ini? Anda perlu memasukkan kredensial kembali untuk mengakses portal admin ElibUMKO.
 					</p>
 				</div>
 			</div>

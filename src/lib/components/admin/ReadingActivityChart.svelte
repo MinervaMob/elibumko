@@ -18,17 +18,16 @@
 		data.reduce((sum, d) => sum + (selectedMetric === 'sessions' ? d.sessions : d.pagesRead), 0)
 	);
 
-	const avgDaily = $derived(data.length > 0 ? Math.round(totalMetricValue / data.length) : 0);
+	const avgDaily = $derived(
+		data.length > 0 ? Math.round(totalMetricValue / data.length) : 0
+	);
 
 	const peakPoint = $derived(
-		data.reduce(
-			(max, d) => {
-				const val = selectedMetric === 'sessions' ? d.sessions : d.pagesRead;
-				const maxVal = selectedMetric === 'sessions' ? max.sessions : max.pagesRead;
-				return val > maxVal ? d : max;
-			},
-			data[0] || { label: 'Sen', sessions: 0, pagesRead: 0 }
-		)
+		data.reduce((max, d) => {
+			const val = selectedMetric === 'sessions' ? d.sessions : d.pagesRead;
+			const maxVal = selectedMetric === 'sessions' ? max.sessions : max.pagesRead;
+			return val > maxVal ? d : max;
+		}, data[0] || { label: 'Sen', sessions: 0, pagesRead: 0 })
 	);
 
 	const peakVal = $derived(

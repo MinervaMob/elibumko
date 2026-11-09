@@ -134,10 +134,9 @@
 		<StatCard
 			title="Pembaca Aktif"
 			value={stats.activeReaders}
-			subtext={stats.readerDemographics &&
-			(stats.readerDemographics.dosen > 0 || stats.readerDemographics.mahasiswa > 0)
+			subtext={stats.readerDemographics && (stats.readerDemographics.dosen > 0 || stats.readerDemographics.mahasiswa > 0)
 				? `${stats.readerDemographics.mahasiswa} Mhs · ${stats.readerDemographics.dosen} Dosen · ${stats.readerDemographics.umum} Umum`
-				: 'Perangkat Unik Sivitas (Jaringan Kampus)'}
+				: "Perangkat Unik Sivitas (Jaringan Kampus)"}
 			trend={{ value: stats.readersTrend, positive: true }}
 		>
 			{#snippet icon()}

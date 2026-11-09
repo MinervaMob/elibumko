@@ -20,9 +20,7 @@ export const actions: Actions = {
 		const code = formData.get('code')?.toString()?.trim();
 		const name = formData.get('name')?.toString()?.trim();
 		const description = formData.get('description')?.toString()?.trim() || undefined;
-		const color =
-			(formData.get('color')?.toString()?.trim() as 'brick' | 'terracotta' | 'sand' | 'ink') ||
-			'brick';
+		const color = (formData.get('color')?.toString()?.trim() as 'brick' | 'terracotta' | 'sand' | 'ink') || 'brick';
 		const parentCode = formData.get('parentCode')?.toString()?.trim() || undefined;
 		const isCustom = formData.get('isCustom') === 'true';
 
@@ -51,9 +49,7 @@ export const actions: Actions = {
 		const code = formData.get('code')?.toString()?.trim();
 		const name = formData.get('name')?.toString()?.trim();
 		const description = formData.get('description')?.toString()?.trim() || undefined;
-		const color =
-			(formData.get('color')?.toString()?.trim() as 'brick' | 'terracotta' | 'sand' | 'ink') ||
-			undefined;
+		const color = (formData.get('color')?.toString()?.trim() as 'brick' | 'terracotta' | 'sand' | 'ink') || undefined;
 
 		if (!code || !name) {
 			return fail(400, { error: 'Kode dan nama klasifikasi wajib diisi.' });
