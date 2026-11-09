@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { statsService } from '#lib/server/services';
+import { statsService, settingsService } from '#lib/server/services';
 
 export const load: LayoutServerLoad = async (event) => {
 	const isLoginPage = event.url.pathname === '/admin/login';
@@ -14,7 +14,8 @@ export const load: LayoutServerLoad = async (event) => {
 		return {
 			user: null,
 			session: null,
-			stats: null
+			stats: null,
+			librarianProfile: null
 		};
 	}
 
@@ -24,11 +25,47 @@ export const load: LayoutServerLoad = async (event) => {
 		throw redirect(303, `/admin/login?redirectTo=${encodeURIComponent(from)}`);
 	}
 
-	const stats = await statsService.getAdminStats();
+	try {
+		const [stats, librarianProfile] = await Promise.all([
+			statsService.getAdminStats(),
+			settingsService.getLibrarianProfile()
+		]);
 
-	return {
-		user: event.locals.user,
-		session: event.locals.session,
-		stats
-	};
+		const safeProf = librarianProfile || {
+			id: 'pustakawan-umko',
+			name: event.locals.user.name || 'Ilham Pangestu, S.Kom',
+			email: event.locals.user.email || 'pustakawan@umko.ac.id',
+			role: 'Pustakawan Utama',
+			nidn: '',
+			phone: '',
+			bio: '',
+			avatar: null,
+			lastLogin: 'Baru saja'
+		};
+
+		const user = {
+			...event.locals.user,
+			name: safeProf.name || event.locals.user.name,
+			email: safeProf.email || event.locals.user.email,
+			role: safeProf.role || 'Pustakawan Utama',
+			nidn: safeProf.nidn || '',
+			phone: safeProf.phone || '',
+			bio: safeProf.bio || ''
+		};
+
+		return {
+			user,
+			session: event.locals.session,
+			stats,
+			librarianProfile: safeProf
+		};
+	} catch (err) {
+		console.error('[AdminLayoutLoadError]', err);
+		return {
+			user: event.locals.user,
+			session: event.locals.session,
+			stats: null,
+			librarianProfile: null
+		};
+	}
 };

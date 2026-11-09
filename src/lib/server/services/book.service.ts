@@ -135,6 +135,25 @@ export class BookService {
 	}
 
 	/**
+	 * Rekam sesi pembacaan terproteksi dengan deduplikasi 30-menit per perangkat
+	 */
+	async recordReadingSession(params: {
+		bookSlug: string;
+		deviceHash: string;
+		role?: 'mahasiswa' | 'dosen' | 'umum';
+		pagesRead?: number;
+	}): Promise<{ isNewSession: boolean }> {
+		return repository.recordReadingSession(params);
+	}
+
+	/**
+	 * Perbarui identifikasi peran pembaca (dosen / mahasiswa) pada perangkat
+	 */
+	async updateSessionRole(deviceHash: string, role: 'mahasiswa' | 'dosen' | 'umum'): Promise<void> {
+		await repository.updateSessionRole(deviceHash, role);
+	}
+
+	/**
 	 * Pencarian cepat live autocomplete (judul, penulis, kategori)
 	 */
 	async searchAutocomplete(query: string): Promise<{

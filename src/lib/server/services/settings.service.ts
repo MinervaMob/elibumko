@@ -1,5 +1,5 @@
 import { repository } from '../db/repository';
-import type { LibraryProfile, LibrarySettings } from '#lib/types';
+import type { LibraryProfile, LibrarySettings, LibrarianProfile } from '#lib/types';
 
 export class SettingsService {
 	/**
@@ -14,8 +14,8 @@ export class SettingsService {
 	 */
 	async getProfile(): Promise<LibraryProfile> {
 		const settings = await repository.getLibrarySettings();
-		const { storageLimitGB: _, ...profile } = settings;
-		return profile;
+		const { storageLimitGB: _, storageDriver: __, customStoragePath: ___, ...profile } = settings;
+		return profile as LibraryProfile;
 	}
 
 	/**
@@ -30,8 +30,32 @@ export class SettingsService {
 	 */
 	async updateProfile(updates: Partial<LibraryProfile>): Promise<LibraryProfile> {
 		const updated = await repository.updateLibrarySettings(updates);
-		const { storageLimitGB: _, ...profile } = updated;
-		return profile;
+		const { storageLimitGB: _, storageDriver: __, customStoragePath: ___, ...profile } = updated;
+		return profile as LibraryProfile;
+	}
+
+	/**
+	 * Dapatkan profil pribadi pustakawan/admin
+	 */
+	async getLibrarianProfile(): Promise<LibrarianProfile> {
+		return repository.getLibrarianProfile();
+	}
+
+	/**
+	 * Perbarui data profil pribadi pustakawan
+	 */
+	async updateLibrarianProfile(updates: Partial<LibrarianProfile>): Promise<LibrarianProfile> {
+		return repository.updateLibrarianProfile(updates);
+	}
+
+	/**
+	 * Ganti kata sandi pustakawan
+	 */
+	async changeLibrarianPassword(
+		oldPass: string,
+		newPass: string
+	): Promise<{ success: boolean; message: string }> {
+		return repository.changeLibrarianPassword(oldPass, newPass);
 	}
 }
 

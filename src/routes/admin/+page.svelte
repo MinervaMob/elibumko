@@ -134,7 +134,10 @@
 		<StatCard
 			title="Pembaca Aktif"
 			value={stats.activeReaders}
-			subtext="Mahasiswa & Dosen UMKO"
+			subtext={stats.readerDemographics &&
+			(stats.readerDemographics.dosen > 0 || stats.readerDemographics.mahasiswa > 0)
+				? `${stats.readerDemographics.mahasiswa} Mhs · ${stats.readerDemographics.dosen} Dosen · ${stats.readerDemographics.umum} Umum`
+				: 'Perangkat Unik Sivitas (Jaringan Kampus)'}
 			trend={{ value: stats.readersTrend, positive: true }}
 		>
 			{#snippet icon()}
@@ -145,7 +148,7 @@
 		<StatCard
 			title="Sesi Pembacaan"
 			value={stats.totalReadingSessions}
-			subtext="Bulan berjalan"
+			subtext="Aturan Sesi 30 Menit / Perangkat"
 			trend={{ value: stats.sessionsTrend, positive: true }}
 		>
 			{#snippet icon()}

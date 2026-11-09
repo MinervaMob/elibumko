@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { statsService, settingsService, activityService } from '#lib/server/services';
+import { statsService, settingsService, activityService, mediaService } from '#lib/server/services';
 import { DEFAULT_LIBRARIAN } from '#lib/server/auth-constants';
 
 export const load: PageServerLoad = async () => {
@@ -27,11 +27,25 @@ export const actions: Actions = {
 		const hoursWeekday = formData.get('hoursWeekday')?.toString()?.trim();
 		const hoursSaturday = formData.get('hoursSaturday')?.toString()?.trim();
 		const storageLimitGB = Number(formData.get('storageLimitGB')) || 50;
+		const storageDriver = (formData.get('storageDriver')?.toString()?.trim() || 'local') as
+			'local' | 'custom_local' | 's3_minio';
+		const customStoragePath = formData.get('customStoragePath')?.toString()?.trim() || '';
+		const s3Endpoint = formData.get('s3Endpoint')?.toString()?.trim() || '';
+		const s3Bucket = formData.get('s3Bucket')?.toString()?.trim() || '';
 
 		if (!name || !institution) {
 			return fail(400, {
 				error: 'Nama perpustakaan dan institusi naungan wajib diisi.'
 			});
+		}
+
+		if (storageDriver === 'custom_local' && customStoragePath) {
+			const check = await mediaService.testStoragePath(customStoragePath);
+			if (!check.success) {
+				return fail(400, {
+					error: `Verifikasi jalur penyimpanan gagal: ${check.message}`
+				});
+			}
 		}
 
 		const updatedSettings = await settingsService.updateSettings({
@@ -43,13 +57,19 @@ export const actions: Actions = {
 			...(address ? { address } : {}),
 			...(hoursWeekday ? { hoursWeekday } : {}),
 			...(hoursSaturday ? { hoursSaturday } : {}),
-			storageLimitGB
+			storageLimitGB,
+			storageDriver,
+			customStoragePath,
+			s3Endpoint,
+			s3Bucket
 		});
 
 		const currentUserName = locals.user?.name || DEFAULT_LIBRARIAN.name;
 		await activityService.logActivity(
 			'update',
-			'Memperbarui konfigurasi identitas dan batas penyimpanan perpustakaan',
+			`Memperbarui konfigurasi perpustakaan (Penyedia media: ${storageDriver}${
+				storageDriver === 'custom_local' ? ` [${customStoragePath}]` : ''
+			})`,
 			undefined,
 			undefined,
 			currentUserName
@@ -58,7 +78,7 @@ export const actions: Actions = {
 		return {
 			success: true,
 			settings: updatedSettings,
-			message: 'Pengaturan perpustakaan berhasil diperbarui dan disimpan.'
+			message: 'Pengaturan perpustakaan dan lokasi penyimpanan berhasil diperbarui.'
 		};
 	}
 };

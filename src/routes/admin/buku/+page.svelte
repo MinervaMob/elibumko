@@ -22,10 +22,11 @@
 		Eye,
 		Sparkles
 	} from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import type { PageData } from './$types';
 	import type { BookData } from '#lib/types';
 	import { BookCover } from '#lib';
-	import BookFormModal from '#lib/components/admin/BookFormModal.svelte';
 	import DeleteBookModal from '#lib/components/admin/DeleteBookModal.svelte';
 
 	interface Props {
@@ -36,15 +37,12 @@
 
 	// Local mutable reactive state
 	let localBooks = $state<BookData[] | null>(null);
-	let books = $derived(localBooks ?? data.books);
+	let books = $derived<BookData[]>((localBooks ?? data.books) as BookData[]);
 	let searchQuery = $state('');
 	let selectedCategory = $state('Semua');
 	let selectedFormat = $state('Semua');
 
-	// Modal States
-	let isFormModalOpen = $state(false);
-	let bookToEdit = $state<BookData | null>(null);
-
+	// Modal State (Deletion)
 	let isDeleteModalOpen = $state(false);
 	let bookToDelete = $state<BookData | null>(null);
 
@@ -60,15 +58,22 @@
 		}, 4000);
 	}
 
+	onMount(() => {
+		const updatedTitle = page.url.searchParams.get('updated');
+		if (updatedTitle) {
+			showToast(`Perubahan metadata naskah "${updatedTitle}" berhasil disimpan.`);
+		}
+	});
+
 	// Categories list for filtering
 	const categories = $derived([
 		'Semua',
-		...Array.from(new Set(books.map((b) => b.category).filter(Boolean)))
+		...Array.from(new Set(books.map((b: BookData) => b.category).filter(Boolean)))
 	]);
 
 	// Filtered books
-	const filteredBooks = $derived(
-		books.filter((b) => {
+	const filteredBooks = $derived<BookData[]>(
+		books.filter((b: BookData) => {
 			const matchQ =
 				!searchQuery.trim() ||
 				b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -87,32 +92,14 @@
 		})
 	);
 
-	function openEditModal(book: BookData) {
-		bookToEdit = book;
-		isFormModalOpen = true;
-	}
-
 	function openDeleteModal(book: BookData) {
 		bookToDelete = book;
 		isDeleteModalOpen = true;
 	}
 
-	function handleBookSaved(savedBook: BookData) {
-		const current = [...books];
-		const idx = current.findIndex((b) => b.slug === savedBook.slug);
-		if (idx !== -1) {
-			current[idx] = savedBook;
-			showToast(`Perubahan metadata naskah "${savedBook.title}" berhasil disimpan.`);
-		} else {
-			current.unshift(savedBook);
-			showToast(`Buku baru "${savedBook.title}" berhasil diterbitkan ke katalog.`);
-		}
-		localBooks = current;
-	}
-
 	function handleBookDeleted(slug: string) {
-		const target = books.find((b) => b.slug === slug);
-		localBooks = books.filter((b) => b.slug !== slug);
+		const target = books.find((b: BookData) => b.slug === slug);
+		localBooks = books.filter((b: BookData) => b.slug !== slug);
 		showToast(`Buku "${target?.title || slug}" telah dihapus dari katalog aktif.`);
 	}
 </script>
@@ -335,15 +322,14 @@
 											<Eye size={14} />
 										</a>
 
-										<!-- Edit -->
-										<button
-											type="button"
-											onclick={() => openEditModal(book)}
+										<!-- Edit (Dedicated Full-Page Editor) -->
+										<a
+											href="/admin/buku/{book.slug}/edit"
 											class="focus-library rounded-sm border border-ink/15 p-1.5 text-ink-muted transition-colors hover:border-ink/40 hover:bg-sand/60 hover:text-ink"
-											title="Sunting Metadata Naskah"
+											title="Sunting Metadata Naskah Lengkap"
 										>
 											<Edit3 size={14} />
-										</button>
+										</a>
 
 										<!-- Delete -->
 										<button
@@ -364,16 +350,7 @@
 		{/if}
 	</div>
 
-	<!-- Modals -->
-	<BookFormModal
-		isOpen={isFormModalOpen}
-		{bookToEdit}
-		ddcTree={data.ddcTree}
-		categories={data.categories}
-		onClose={() => (isFormModalOpen = false)}
-		onSaved={handleBookSaved}
-	/>
-
+	<!-- Deletion Modal -->
 	<DeleteBookModal
 		isOpen={isDeleteModalOpen}
 		book={bookToDelete}

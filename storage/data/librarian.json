@@ -1,0 +1,14 @@
+{
+  "profile": {
+    "id": "pustakawan-umko",
+    "name": "Ilham Pangestu, S.Kom",
+    "email": "pustakawan@umko.ac.id",
+    "role": "Pustakawan Utama",
+    "nidn": "235201122",
+    "phone": "08578383571",
+    "bio": "Pustakawan Pengelola Perpustakaan Digital Universitas Muhammadiyah Kotabumi.",
+    "avatar": null,
+    "lastLogin": "Baru saja"
+  },
+  "password": "pustakawan123"
+}

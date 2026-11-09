@@ -13,9 +13,46 @@
 	let selectedMetric = $state<Metric>('sessions');
 	let hoveredIndex = $state<number | null>(null);
 
-	const maxSessions = $derived(Math.max(...data.map((d) => d.sessions), 100));
-	const maxPages = $derived(Math.max(...data.map((d) => d.pagesRead), 1000));
-	const activeMax = $derived(selectedMetric === 'sessions' ? maxSessions : maxPages);
+	// Compute real metrics from actual points
+	const totalMetricValue = $derived(
+		data.reduce((sum, d) => sum + (selectedMetric === 'sessions' ? d.sessions : d.pagesRead), 0)
+	);
+
+	const avgDaily = $derived(data.length > 0 ? Math.round(totalMetricValue / data.length) : 0);
+
+	const peakPoint = $derived(
+		data.reduce(
+			(max, d) => {
+				const val = selectedMetric === 'sessions' ? d.sessions : d.pagesRead;
+				const maxVal = selectedMetric === 'sessions' ? max.sessions : max.pagesRead;
+				return val > maxVal ? d : max;
+			},
+			data[0] || { label: 'Sen', sessions: 0, pagesRead: 0 }
+		)
+	);
+
+	const peakVal = $derived(
+		selectedMetric === 'sessions' ? peakPoint.sessions : peakPoint.pagesRead
+	);
+
+	// Dynamic, proportional scale for Y-axis (prevents flat curve when total is small)
+	const rawMax = $derived(
+		Math.max(...data.map((d) => (selectedMetric === 'sessions' ? d.sessions : d.pagesRead)), 1)
+	);
+
+	const activeMax = $derived(
+		rawMax <= 5
+			? 5
+			: rawMax <= 10
+				? 10
+				: rawMax <= 20
+					? 20
+					: rawMax <= 50
+						? 50
+						: rawMax <= 100
+							? 100
+							: Math.ceil(rawMax / 50) * 50
+	);
 
 	// SVG Dimensions
 	const width = 640;
@@ -33,7 +70,7 @@
 		data.map((item, i) => {
 			const x = padLeft + (i / Math.max(1, data.length - 1)) * plotWidth;
 			const val = selectedMetric === 'sessions' ? item.sessions : item.pagesRead;
-			const y = padTop + plotHeight - (val / activeMax) * plotHeight;
+			const y = padTop + plotHeight - (val / Math.max(1, activeMax)) * plotHeight;
 			return { x, y, val, label: item.label, item };
 		})
 	);
@@ -85,7 +122,7 @@
 				</h3>
 			</div>
 			<p class="mt-0.5 text-xs text-ink-muted">
-				Tren pembacaan ebook oleh mahasiswa dan dosen (7 hari terakhir)
+				Tren pembacaan ebook oleh sivitas akademika (7 hari terakhir)
 			</p>
 		</div>
 
@@ -216,7 +253,7 @@
 				class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full transform rounded-sm border border-sand/30 bg-ink px-2.5 py-1.5 font-mono text-xs text-cream shadow-md transition-all duration-75"
 				style="left: {(p.x / width) * 100}%; top: {((p.y - 12) / height) * 100}%;"
 			>
-				<p class="font-sans text-[10px] text-sand">{p.label} (Hari ini)</p>
+				<p class="font-sans text-[10px] text-sand">{p.label}</p>
 				<p class="font-bold text-cream">
 					{p.val.toLocaleString('id-ID')}
 					<span class="font-normal text-sand/80">
@@ -227,20 +264,29 @@
 		{/if}
 	</div>
 
-	<!-- Chart Footer Highlights -->
+	<!-- Chart Footer Highlights: 100% Dynamically Calculated from Points -->
 	<div
 		class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 pt-3 font-mono text-xs text-ink-muted"
 	>
 		<div class="flex items-center gap-4">
 			<span class="flex items-center gap-1.5">
 				<span class="h-2.5 w-2.5 rounded-full bg-brick"></span>
-				<span>Puncak: Rabu (890 sesi)</span>
+				<span
+					>Puncak: {peakPoint.label} ({peakVal.toLocaleString('id-ID')}
+					{selectedMetric === 'sessions' ? 'sesi' : 'hlm'})</span
+				>
 			</span>
 			<span class="flex items-center gap-1.5">
 				<span class="h-2.5 w-2.5 rounded-full bg-terracotta"></span>
-				<span>Rerata: 645 sesi/hari</span>
+				<span
+					>Rerata: {avgDaily.toLocaleString('id-ID')}
+					{selectedMetric === 'sessions' ? 'sesi/hari' : 'hlm/hari'}</span
+				>
 			</span>
 		</div>
-		<span class="font-medium text-brick"> +24.1% dibandingkan pekan lalu </span>
+		<span class="font-medium text-brick">
+			Total Pekan Ini: {totalMetricValue.toLocaleString('id-ID')}
+			{selectedMetric === 'sessions' ? 'sesi' : 'halaman'}
+		</span>
 	</div>
 </div>

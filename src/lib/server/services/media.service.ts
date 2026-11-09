@@ -1,9 +1,10 @@
 import { readFile, writeFile, unlink, access, mkdir, readdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { constants } from 'node:fs';
+import { settingsService } from './settings.service';
 
-const BOOKS_DIR = join(process.cwd(), 'storage', 'books');
-const COVERS_DIR = join(process.cwd(), 'storage', 'covers');
+const DEFAULT_BOOKS_DIR = join(process.cwd(), 'storage', 'books');
+const DEFAULT_COVERS_DIR = join(process.cwd(), 'storage', 'covers');
 
 const MIME_TYPES: Record<string, string> = {
 	'.pdf': 'application/pdf',
@@ -39,13 +40,84 @@ export interface StorageUsageReport {
 }
 
 class MediaService {
-	private initialized = false;
+	/**
+	 * Dapatkan direktori penyimpanan yang aktif secara dinamis
+	 * Berdasarkan konfigurasi storageDriver ('local' vs 'custom_local')
+	 */
+	async getStorageDirs(): Promise<{
+		booksDir: string;
+		coversDir: string;
+		baseDir: string;
+		isCustom: boolean;
+	}> {
+		try {
+			const settings = await settingsService.getSettings();
+			if (settings.storageDriver === 'custom_local' && settings.customStoragePath?.trim()) {
+				const raw = settings.customStoragePath.trim();
+				const baseDir = isAbsolute(raw) ? raw : join(process.cwd(), raw);
+				const booksDir = join(baseDir, 'books');
+				const coversDir = join(baseDir, 'covers');
+				await mkdir(booksDir, { recursive: true });
+				await mkdir(coversDir, { recursive: true });
+				return { booksDir, coversDir, baseDir, isCustom: true };
+			}
+		} catch {
+			// Fallback ke penyimpanan bawaan
+		}
 
-	private async ensureDirs() {
-		if (this.initialized) return;
-		await mkdir(BOOKS_DIR, { recursive: true });
-		await mkdir(COVERS_DIR, { recursive: true });
-		this.initialized = true;
+		await mkdir(DEFAULT_BOOKS_DIR, { recursive: true });
+		await mkdir(DEFAULT_COVERS_DIR, { recursive: true });
+		return {
+			booksDir: DEFAULT_BOOKS_DIR,
+			coversDir: DEFAULT_COVERS_DIR,
+			baseDir: join(process.cwd(), 'storage'),
+			isCustom: false
+		};
+	}
+
+	/**
+	 * Uji keterbacaan & izin tulis direktori penyimpanan
+	 */
+	async testStoragePath(targetPath: string): Promise<{
+		success: boolean;
+		message: string;
+		resolvedPath: string;
+		isWritable: boolean;
+	}> {
+		if (!targetPath?.trim()) {
+			return {
+				success: false,
+				message: 'Jalur direktori tidak boleh kosong.',
+				resolvedPath: '',
+				isWritable: false
+			};
+		}
+
+		const resolved = isAbsolute(targetPath.trim())
+			? targetPath.trim()
+			: join(process.cwd(), targetPath.trim());
+
+		try {
+			await mkdir(resolved, { recursive: true });
+			const probeFile = join(resolved, `.probe_write_${Date.now()}.tmp`);
+			await writeFile(probeFile, 'elibumko-storage-check');
+			await unlink(probeFile);
+			return {
+				success: true,
+				message:
+					'Direktori penyimpanan valid dan dapat dibaca serta ditulis (Izin Read/Write Terverifikasi).',
+				resolvedPath: resolved,
+				isWritable: true
+			};
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return {
+				success: false,
+				message: `Tidak dapat mengakses atau menulis ke direktori "${resolved}": ${msg}`,
+				resolvedPath: resolved,
+				isWritable: false
+			};
+		}
 	}
 
 	/**
@@ -60,7 +132,7 @@ class MediaService {
 		size: number;
 		fileType: 'pdf' | 'epub' | 'docx';
 	}> {
-		await this.ensureDirs();
+		const { booksDir } = await this.getStorageDirs();
 
 		const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
 		if (!['.pdf', '.epub', '.docx', '.doc'].includes(ext)) {
@@ -73,11 +145,7 @@ class MediaService {
 
 		const rawBase = fileName.replace(/\.[^/.]+$/, '');
 		const safeName = `${sanitizeFileName(rawBase)}-${Date.now()}${ext}`;
-		const filePath = join(BOOKS_DIR, safeName);
-
-		if (!filePath.startsWith(BOOKS_DIR)) {
-			throw new Error('Upaya path traversal terdeteksi.');
-		}
+		const filePath = join(booksDir, safeName);
 
 		await writeFile(filePath, buffer);
 		return {
@@ -92,15 +160,24 @@ class MediaService {
 	 * Ambil berkas dokumen buku
 	 */
 	async getDocument(fileName: string): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
-		await this.ensureDirs();
+		const { booksDir } = await this.getStorageDirs();
 		const safe = sanitizeFileName(fileName);
-		const filePath = join(BOOKS_DIR, safe);
+		let targetPath = join(booksDir, safe);
 
-		if (!filePath.startsWith(BOOKS_DIR)) {
-			throw new Error('Upaya path traversal terdeteksi.');
+		try {
+			await access(targetPath, constants.R_OK);
+		} catch {
+			// Fallback cek direktori default
+			const fallbackPath = join(DEFAULT_BOOKS_DIR, safe);
+			try {
+				await access(fallbackPath, constants.R_OK);
+				targetPath = fallbackPath;
+			} catch {
+				throw new Error(`Berkas "${fileName}" tidak ditemukan dalam media storage.`);
+			}
 		}
 
-		const buffer = await readFile(filePath);
+		const buffer = await readFile(targetPath);
 		return {
 			buffer,
 			mimeType: getMimeType(safe),
@@ -115,7 +192,7 @@ class MediaService {
 		fileName: string,
 		buffer: Buffer
 	): Promise<{ url: string; fileName: string; size: number; mimeType: string }> {
-		await this.ensureDirs();
+		const { coversDir } = await this.getStorageDirs();
 
 		const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
 		if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) {
@@ -124,11 +201,7 @@ class MediaService {
 
 		const rawBase = fileName.replace(/\.[^/.]+$/, '');
 		const safeName = `cover-${sanitizeFileName(rawBase)}-${Date.now()}${ext}`;
-		const filePath = join(COVERS_DIR, safeName);
-
-		if (!filePath.startsWith(COVERS_DIR)) {
-			throw new Error('Upaya path traversal terdeteksi.');
-		}
+		const filePath = join(coversDir, safeName);
 
 		await writeFile(filePath, buffer);
 		return {
@@ -143,15 +216,23 @@ class MediaService {
 	 * Ambil sampul buku dari storage
 	 */
 	async getCover(fileName: string): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
-		await this.ensureDirs();
+		const { coversDir } = await this.getStorageDirs();
 		const safe = sanitizeFileName(fileName);
-		const filePath = join(COVERS_DIR, safe);
+		let targetPath = join(coversDir, safe);
 
-		if (!filePath.startsWith(COVERS_DIR)) {
-			throw new Error('Upaya path traversal terdeteksi.');
+		try {
+			await access(targetPath, constants.R_OK);
+		} catch {
+			const fallbackPath = join(DEFAULT_COVERS_DIR, safe);
+			try {
+				await access(fallbackPath, constants.R_OK);
+				targetPath = fallbackPath;
+			} catch {
+				throw new Error(`Berkas sampul "${fileName}" tidak ditemukan.`);
+			}
 		}
 
-		const buffer = await readFile(filePath);
+		const buffer = await readFile(targetPath);
 		return {
 			buffer,
 			mimeType: getMimeType(safe),
@@ -163,18 +244,24 @@ class MediaService {
 	 * Hapus berkas
 	 */
 	async deleteFile(type: 'book' | 'cover', fileName: string): Promise<boolean> {
-		await this.ensureDirs();
-		const dir = type === 'book' ? BOOKS_DIR : COVERS_DIR;
+		const { booksDir, coversDir } = await this.getStorageDirs();
+		const dir = type === 'book' ? booksDir : coversDir;
 		const safe = sanitizeFileName(fileName);
 		const filePath = join(dir, safe);
-
-		if (!filePath.startsWith(dir)) return false;
 
 		try {
 			await unlink(filePath);
 			return true;
 		} catch {
-			return false;
+			// Cek fallback
+			const fallbackDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
+			const fallbackPath = join(fallbackDir, safe);
+			try {
+				await unlink(fallbackPath);
+				return true;
+			} catch {
+				return false;
+			}
 		}
 	}
 
@@ -182,18 +269,22 @@ class MediaService {
 	 * Cek keberadaan berkas
 	 */
 	async fileExists(type: 'book' | 'cover', fileName: string): Promise<boolean> {
-		await this.ensureDirs();
-		const dir = type === 'book' ? BOOKS_DIR : COVERS_DIR;
+		const { booksDir, coversDir } = await this.getStorageDirs();
+		const dir = type === 'book' ? booksDir : coversDir;
 		const safe = sanitizeFileName(fileName);
 		const filePath = join(dir, safe);
-
-		if (!filePath.startsWith(dir)) return false;
 
 		try {
 			await access(filePath, constants.R_OK);
 			return true;
 		} catch {
-			return false;
+			const fallbackDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
+			try {
+				await access(join(fallbackDir, safe), constants.R_OK);
+				return true;
+			} catch {
+				return false;
+			}
 		}
 	}
 
@@ -201,38 +292,44 @@ class MediaService {
 	 * Hitung penggunaan storage riil pada disk server
 	 */
 	async getStorageUsage(limitGB = 50): Promise<StorageUsageReport> {
-		await this.ensureDirs();
+		const { booksDir, coversDir, isCustom } = await this.getStorageDirs();
 
 		let pdfBytes = 0;
 		let epubBytes = 0;
 		let coverBytes = 0;
 		let totalFiles = 0;
+		const scannedPaths = new Set<string>();
 
-		try {
-			const bookFiles = await readdir(BOOKS_DIR);
-			for (const file of bookFiles) {
-				const s = await stat(join(BOOKS_DIR, file));
-				if (s.isFile()) {
-					totalFiles++;
-					if (file.endsWith('.pdf')) pdfBytes += s.size;
-					else if (file.endsWith('.epub')) epubBytes += s.size;
-				}
-			}
-		} catch {
-			// ignore directory reading errors
-		}
+		const scanDir = async (dir: string, isCover = false) => {
+			try {
+				const files = await readdir(dir);
+				for (const file of files) {
+					const fullPath = join(dir, file);
+					if (scannedPaths.has(fullPath)) continue;
+					scannedPaths.add(fullPath);
 
-		try {
-			const coverFiles = await readdir(COVERS_DIR);
-			for (const file of coverFiles) {
-				const s = await stat(join(COVERS_DIR, file));
-				if (s.isFile()) {
-					totalFiles++;
-					coverBytes += s.size;
+					const s = await stat(fullPath);
+					if (s.isFile()) {
+						totalFiles++;
+						if (isCover) {
+							coverBytes += s.size;
+						} else {
+							if (file.endsWith('.pdf')) pdfBytes += s.size;
+							else if (file.endsWith('.epub')) epubBytes += s.size;
+						}
+					}
 				}
+			} catch {
+				// Abaikan jika folder belum ada
 			}
-		} catch {
-			// ignore directory reading errors
+		};
+
+		await scanDir(booksDir, false);
+		await scanDir(coversDir, true);
+
+		if (isCustom) {
+			await scanDir(DEFAULT_BOOKS_DIR, false);
+			await scanDir(DEFAULT_COVERS_DIR, true);
 		}
 
 		const usedBytes = pdfBytes + epubBytes + coverBytes;
@@ -268,15 +365,13 @@ class MediaService {
 			{ bg: '#E2C799', text: '#2A1A16', accent: '#9A3B3B', tag: '#C08261' } // Sand
 		];
 
-		let hash = 0;
-		for (let i = 0; i < (book.title || '').length; i++) {
-			hash = (hash << 5) - hash + book.title.charCodeAt(i);
-			hash |= 0;
-		}
-		const theme = themes[Math.abs(hash) % themes.length];
+		// Deterministic theme selection based on title character hash
+		const charCodeSum = (book.title || '')
+			.split('')
+			.reduce((acc, char) => acc + char.charCodeAt(0), 0);
+		const theme = themes[charCodeSum % themes.length];
 
-		// Truncate and escape title
-		const safeTitle = (book.title || 'Koleksi Perpustakaan')
+		const safeTitle = (book.title || 'Koleksi Akademik')
 			.replace(/&/g, '&amp;')
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');

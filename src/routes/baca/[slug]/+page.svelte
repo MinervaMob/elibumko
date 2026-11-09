@@ -15,6 +15,7 @@
 
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { TableOfContentItem } from '#lib';
 
@@ -32,6 +33,11 @@
 
 	// Snapshot book to avoid reactive reference warning
 	const book = $derived(data.book);
+
+	// ── Reader session identity state ──────────────────────────────────────────
+	// svelte-ignore state_referenced_locally
+	let currentRole = $state<'mahasiswa' | 'dosen' | 'umum'>(data.readerRole || 'umum');
+	let isRolePromptOpen = $state(true);
 
 	// ── Reader settings state ──────────────────────────────────────────────────
 	type Theme = 'light' | 'sepia' | 'dark' | 'contrast';
@@ -372,6 +378,60 @@
 			}}
 			onToggleFullscreen={toggleFullscreen}
 		/>
+
+		<!-- Quick Reader Role Presence (Non-intrusive on-premise demographic identifier) -->
+		{#if isRolePromptOpen && currentRole === 'umum'}
+			<div
+				class="flex items-center justify-between border-b border-ink/10 bg-sand/90 px-4 py-1 text-xs text-ink shadow-xs backdrop-blur-xs transition-all"
+			>
+				<div class="flex items-center gap-2">
+					<span class="font-medium text-ink-muted">Identifikasi Sivitas UMKO:</span>
+					<span class="text-[11px] text-ink">Membaca sebagai:</span>
+				</div>
+				<div class="flex items-center gap-1.5">
+					<form
+						method="POST"
+						action="?/setRole"
+						use:enhance={() => {
+							currentRole = 'mahasiswa';
+							isRolePromptOpen = false;
+						}}
+					>
+						<input type="hidden" name="role" value="mahasiswa" />
+						<button
+							type="submit"
+							class="rounded-xs bg-brick px-2 py-0.5 text-[10px] font-semibold text-cream transition-colors hover:bg-brick/90"
+						>
+							Mahasiswa
+						</button>
+					</form>
+					<form
+						method="POST"
+						action="?/setRole"
+						use:enhance={() => {
+							currentRole = 'dosen';
+							isRolePromptOpen = false;
+						}}
+					>
+						<input type="hidden" name="role" value="dosen" />
+						<button
+							type="submit"
+							class="rounded-xs bg-terracotta px-2 py-0.5 text-[10px] font-semibold text-cream transition-colors hover:bg-terracotta/90"
+						>
+							Dosen / Peneliti
+						</button>
+					</form>
+					<button
+						type="button"
+						onclick={() => (isRolePromptOpen = false)}
+						class="ml-2 text-[11px] text-ink-muted hover:text-ink"
+						title="Tutup banner"
+					>
+						✕
+					</button>
+				</div>
+			</div>
+		{/if}
 
 		<ReaderSearchPanel
 			isOpen={isSearchOpen}

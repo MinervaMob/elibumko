@@ -3,11 +3,11 @@
  */
 
 export const DEFAULT_LIBRARIAN = {
-	name: 'Drs. H. Mulyadi, M.Pd.',
+	name: 'Ilham Pangestu, S.Kom',
 	email: 'pustakawan@umko.ac.id',
 	password: 'pustakawan123',
 	role: 'Pustakawan Utama',
-	nidn: '0214056801'
+	nidn: ''
 } as const;
 
 export const DEV_SESSION_COOKIE_NAME = 'elibumko_admin_session';

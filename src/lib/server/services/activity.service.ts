@@ -1,6 +1,6 @@
 import { repository } from '../db/repository';
 import { DEFAULT_LIBRARIAN } from '../auth-constants';
-import type { ActivityLogItem, SearchLogItem } from '#lib/types';
+import type { ActivityLogItem, SearchLogItem, LogStats } from '#lib/types';
 
 export class ActivityService {
 	/**
@@ -38,6 +38,34 @@ export class ActivityService {
 	 */
 	async recordSearch(query: string, resultsCount: number): Promise<void> {
 		await repository.recordSearch(query, resultsCount);
+	}
+
+	/**
+	 * Dapatkan ringkasan metrik dan retensi penyimpanan log
+	 */
+	async getLogStats(): Promise<LogStats> {
+		return repository.getLogStats();
+	}
+
+	/**
+	 * Lakukan rotasi pangkas FIFO untuk menjaga penyimpanan server tetap ringan
+	 */
+	async rotateLogs(keepCount: number = 200): Promise<{ success: boolean; prunedCount: number }> {
+		return repository.rotateLogs(keepCount);
+	}
+
+	/**
+	 * Bersihkan riwayat pencarian tanpa hasil (zero results)
+	 */
+	async clearZeroSearchLogs(): Promise<{ success: boolean; deletedCount: number }> {
+		return repository.clearZeroSearchLogs();
+	}
+
+	/**
+	 * Bersihkan seluruh log pencarian
+	 */
+	async clearAllSearchLogs(): Promise<{ success: boolean }> {
+		return repository.clearAllSearchLogs();
 	}
 }
 

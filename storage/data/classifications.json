@@ -1,0 +1,121 @@
+[
+  {
+    "code": "000",
+    "name": "Karya Umum, Komputer & Informasi",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "004",
+        "name": "Pemrosesan Data & Arsitektur Komputer",
+        "count": 0
+      },
+      {
+        "code": "005",
+        "name": "Pemrograman, Algoritma & Perangkat Lunak",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "100",
+    "name": "Filsafat & Etika Keilmuan",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "170",
+        "name": "Etika Profesi & Filsafat Moral",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "200",
+    "name": "Agama & Studi Islam",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "297.1",
+        "name": "Al-Qur'an dan Hadis Kontemporer",
+        "count": 0
+      },
+      {
+        "code": "297.6",
+        "name": "Kemuhammadiyahan, Tarjih & Tajdid",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "300",
+    "name": "Ilmu Sosial, Hukum & Pendidikan",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "340",
+        "name": "Ilmu Hukum & Peradilan Indonesia",
+        "count": 0
+      },
+      {
+        "code": "370",
+        "name": "Pendidikan Dasar & Teori Pedagogi",
+        "count": 0
+      },
+      {
+        "code": "371",
+        "name": "Manajemen Sekolah & Profesi Pendidik",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "400",
+    "name": "Bahasa & Linguistik Nusantara",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "410",
+        "name": "Linguistik Teoretis & Terapan",
+        "count": 0
+      },
+      {
+        "code": "499.2",
+        "name": "Bahasa & Sastra Lampung Tradisional",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "500",
+    "name": "Sains Murni & Matematika",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "510",
+        "name": "Aljabar & Analisis Real Matematika",
+        "count": 0
+      },
+      {
+        "code": "519",
+        "name": "Statistika Terapan & Probabilitas Riset",
+        "count": 0
+      }
+    ]
+  },
+  {
+    "code": "600",
+    "name": "Teknologi & Ilmu Terapan",
+    "count": 0,
+    "subclasses": [
+      {
+        "code": "650",
+        "name": "Kewirausahaan & Manajemen UMKM",
+        "count": 0
+      },
+      {
+        "code": "658",
+        "name": "Manajemen Keuangan & Perbankan Syariah",
+        "count": 0
+      }
+    ]
+  }
+]

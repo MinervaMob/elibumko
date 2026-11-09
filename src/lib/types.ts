@@ -46,6 +46,9 @@ export interface ClassificationNode {
 	code: string;
 	name: string;
 	count: number;
+	description?: string;
+	color?: 'brick' | 'terracotta' | 'sand' | 'ink';
+	isCustom?: boolean;
 	subclasses?: {
 		code: string;
 		name: string;
@@ -71,10 +74,49 @@ export interface SearchLogItem {
 	lastSearched: string;
 }
 
+export interface LogStats {
+	activityLogCount: number;
+	maxActivityLogs: number;
+	popularSearchCount: number;
+	zeroSearchCount: number;
+	estimatedSizeBytes: number;
+	retentionPolicy: string;
+}
+
 export interface ReadingTrendPoint {
 	label: string;
 	sessions: number;
 	pagesRead: number;
+}
+
+export interface ReadingSessionRecord {
+	id: string;
+	bookSlug: string;
+	deviceHash: string;
+	role: 'mahasiswa' | 'dosen' | 'umum';
+	pagesRead: number;
+	createdAt: string;
+	lastActivityAt: string;
+}
+
+export interface AdminStats {
+	totalBooks: number;
+	totalPdfBooks: number;
+	totalEpubBooks: number;
+	totalReaders: number;
+	activeReaders: number;
+	booksTrend: string;
+	readersTrend: string;
+	totalReadingSessions: number;
+	sessionsTrend: string;
+	storageUsedGB: number;
+	storageLimitGB: number;
+	storagePercent: number;
+	readerDemographics: {
+		mahasiswa: number;
+		dosen: number;
+		umum: number;
+	};
 }
 
 export interface LibraryProfile {
@@ -94,4 +136,20 @@ export interface LibraryProfile {
 
 export interface LibrarySettings extends LibraryProfile {
 	storageLimitGB: number;
+	storageDriver: 'local' | 'custom_local' | 's3_minio';
+	customStoragePath?: string;
+	s3Endpoint?: string;
+	s3Bucket?: string;
+}
+
+export interface LibrarianProfile {
+	id: string;
+	name: string;
+	email: string;
+	role: string;
+	nidn?: string;
+	phone?: string;
+	avatar?: string | null;
+	bio?: string;
+	lastLogin?: string;
 }

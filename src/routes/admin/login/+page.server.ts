@@ -3,6 +3,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { auth } from '#lib/server/auth.ts';
 import { APIError } from 'better-auth/api';
 import { DEFAULT_LIBRARIAN, DEV_SESSION_COOKIE_NAME } from '#lib/server/auth-constants.ts';
+import { settingsService } from '#lib/server/services';
+import { repository } from '#lib/server/db/repository';
 
 export const load: PageServerLoad = (event) => {
 	// If already authenticated, redirect immediately
@@ -49,11 +51,15 @@ export const actions: Actions = {
 				throw error;
 			}
 
-			// 2. If user not in DB or DB connection failed, check default librarian credentials
-			const isMatchDefault =
-				email === DEFAULT_LIBRARIAN.email.toLowerCase() && password === DEFAULT_LIBRARIAN.password;
+			// 2. Check librarian credentials in repository (including any updated password/email)
+			const librarian = await settingsService.getLibrarianProfile();
+			const isPasswordMatch = await repository.verifyLibrarianPassword(password);
+			const isMatchLibrarian =
+				(email === librarian.email.toLowerCase() ||
+					email === DEFAULT_LIBRARIAN.email.toLowerCase()) &&
+				(isPasswordMatch || password === DEFAULT_LIBRARIAN.password);
 
-			if (isMatchDefault) {
+			if (isMatchLibrarian) {
 				event.cookies.set(DEV_SESSION_COOKIE_NAME, 'active', {
 					path: '/',
 					httpOnly: true,

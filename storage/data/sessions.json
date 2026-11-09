@@ -1,0 +1,83 @@
+[
+  {
+    "id": "sess-1794199168244-9f1l",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-09T04:39:28.243Z",
+    "lastActivityAt": "2026-11-09T04:40:14.958Z"
+  },
+  {
+    "id": "seed-sess-kajian-prosa-fiksi-xazz-0",
+    "bookSlug": "kajian-prosa-fiksi-xazz",
+    "deviceHash": "dev-0",
+    "role": "dosen",
+    "pagesRead": 4,
+    "createdAt": "2026-11-09T04:39:21.194Z",
+    "lastActivityAt": "2026-11-09T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-0",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-5",
+    "role": "dosen",
+    "pagesRead": 4,
+    "createdAt": "2026-11-09T04:39:21.194Z",
+    "lastActivityAt": "2026-11-09T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-1",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-0",
+    "role": "mahasiswa",
+    "pagesRead": 5,
+    "createdAt": "2026-11-08T04:39:21.194Z",
+    "lastActivityAt": "2026-11-08T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-2",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-1",
+    "role": "umum",
+    "pagesRead": 6,
+    "createdAt": "2026-11-07T04:39:21.194Z",
+    "lastActivityAt": "2026-11-07T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-3",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-2",
+    "role": "dosen",
+    "pagesRead": 7,
+    "createdAt": "2026-11-06T04:39:21.194Z",
+    "lastActivityAt": "2026-11-06T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-4",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-3",
+    "role": "mahasiswa",
+    "pagesRead": 8,
+    "createdAt": "2026-11-05T04:39:21.194Z",
+    "lastActivityAt": "2026-11-05T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-5",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-4",
+    "role": "umum",
+    "pagesRead": 9,
+    "createdAt": "2026-11-04T04:39:21.194Z",
+    "lastActivityAt": "2026-11-04T04:39:21.194Z"
+  },
+  {
+    "id": "seed-sess-sosio-antropologi-u5sz-6",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-5",
+    "role": "dosen",
+    "pagesRead": 10,
+    "createdAt": "2026-11-03T04:39:21.194Z",
+    "lastActivityAt": "2026-11-03T04:39:21.194Z"
+  }
+]

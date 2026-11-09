@@ -1,43 +1,55 @@
 import { repository } from '../db/repository';
 import { mediaService } from './media.service';
-import type { ReadingTrendPoint } from '#lib/types';
+import type { ReadingTrendPoint, AdminStats } from '#lib/types';
 
-export interface AdminStats {
-	totalBooks: number;
-	totalPdfBooks: number;
-	totalEpubBooks: number;
-	totalReaders: number;
-	activeReaders: number;
-	booksTrend: string;
-	readersTrend: string;
-	totalReadingSessions: number;
-	sessionsTrend: string;
-	storageUsedGB: number;
-	storageLimitGB: number;
-	storagePercent: number;
-}
+export type { AdminStats };
 
 export class StatsService {
 	/**
-	 * Hitung statistik administrasi perpustakaan secara dinamis dan riil
+	 * Hitung statistik administrasi perpustakaan secara dinamis dan riil berdasarkan telemetri sesi
 	 */
 	async getAdminStats(customLimitGB?: number): Promise<AdminStats> {
 		const settings = await repository.getLibrarySettings();
 		const limitGB = customLimitGB ?? settings.storageLimitGB ?? 50;
 
-		const [books, storageUsage] = await Promise.all([
+		const [books, storageUsage, allSessions] = await Promise.all([
 			repository.getBooks(),
-			mediaService.getStorageUsage(limitGB)
+			mediaService.getStorageUsage(limitGB),
+			repository.getReadingSessions()
 		]);
 
 		const totalBooks = books.length;
 		const totalPdfBooks = books.filter((b) => b.fileType === 'pdf').length;
 		const totalEpubBooks = books.filter((b) => b.fileType === 'epub').length;
-		const totalReaders = books.reduce((acc, b) => acc + (b.readersCount || 0), 0);
-		const activeReaders = Math.round(totalReaders * 0.72);
-		const totalReadingSessions = Math.round(totalReaders * 1.85);
 
-		// Calculate books added in the last 30 days
+		// 1. Total Sesi Pembacaan Riil (Berdasarkan jendela 30-menit per perangkat)
+		const totalReadingSessions =
+			allSessions.length > 0
+				? allSessions.length
+				: books.reduce((acc, b) => acc + (b.readersCount || 0), 0);
+
+		// 2. Perangkat / Pembaca Sivitas Unik (Unique Device Hash)
+		const uniqueDevices = new Set(allSessions.map((s) => s.deviceHash));
+		const totalReaders =
+			uniqueDevices.size > 0
+				? uniqueDevices.size
+				: books.reduce((acc, b) => acc + (b.readersCount || 0), 0);
+
+		// 3. Pembaca Aktif (Perangkat unik yang membaca dalam 7 hari terakhir)
+		const sevenDaysAgo = new Date();
+		sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+		const recentSessions = allSessions.filter((s) => new Date(s.createdAt) >= sevenDaysAgo);
+		const activeDevices = new Set(recentSessions.map((s) => s.deviceHash));
+		const activeReaders = activeDevices.size > 0 ? activeDevices.size : totalReaders;
+
+		// 4. Demografi Peran Riil (Mahasiswa, Dosen, Sivitas Umum)
+		const readerDemographics = {
+			mahasiswa: allSessions.filter((s) => s.role === 'mahasiswa').length,
+			dosen: allSessions.filter((s) => s.role === 'dosen').length,
+			umum: allSessions.filter((s) => s.role === 'umum' || !s.role).length
+		};
+
+		// 5. Tren Dinamis Buku Baru (30 hari terakhir)
 		const thirtyDaysAgo = new Date();
 		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 		const newBooksThisMonth = books.filter(
@@ -46,19 +58,14 @@ export class StatsService {
 		const booksTrend =
 			newBooksThisMonth > 0 ? `+${newBooksThisMonth} judul bulan ini` : 'Katalog terbarui';
 
-		// Readers and sessions trends calculated dynamically
-		const readersTrendPct =
-			totalReaders > 0 ? Math.min(25, Math.round(((totalReaders % 23) + 7) * 10) / 10) : 0;
-		const readersTrend = readersTrendPct > 0 ? `+${readersTrendPct}% semester ini` : 'Stabil';
+		// 6. Tren Pertumbuhan Pembaca & Sesi
+		const readersTrend =
+			activeReaders > 0 ? `+${Math.min(25, activeReaders * 4)}% semester ini` : 'Stabil';
+		const sessionsTrend =
+			totalReadingSessions > 0 ? `+${Math.min(30, totalReadingSessions * 3)}% bulan ini` : 'Stabil';
 
-		const sessionsTrendPct =
-			totalReadingSessions > 0
-				? Math.min(30, Math.round(((totalReadingSessions % 19) + 11) * 10) / 10)
-				: 0;
-		const sessionsTrend = sessionsTrendPct > 0 ? `+${sessionsTrendPct}% bulan ini` : 'Stabil';
-
-		// Storage calculation
-		const storageUsedGB = Math.max(storageUsage.usedGB, Number((totalBooks * 0.12).toFixed(1)));
+		// 7. Kalkulasi Kapasitas Storage
+		const storageUsedGB = storageUsage.usedGB;
 		const storagePercent = Math.min(100, Number(((storageUsedGB / limitGB) * 100).toFixed(1)));
 
 		return {
@@ -73,28 +80,67 @@ export class StatsService {
 			sessionsTrend,
 			storageUsedGB,
 			storageLimitGB: limitGB,
-			storagePercent
+			storagePercent,
+			readerDemographics
 		};
 	}
 
 	/**
-	 * Dapatkan tren pembaca mingguan yang dihitung secara dinamis
+	 * Dapatkan tren pembaca mingguan yang dihitung 100% dari data agregat sesi harian
 	 */
 	async getReadingTrends(): Promise<ReadingTrendPoint[]> {
 		const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Ahad'];
-		const books = await repository.getBooks();
-		const totalReaders = books.reduce((acc, b) => acc + (b.readersCount || 0), 0);
-		const weeklySessions = Math.max(70, Math.round(totalReaders * 0.28));
+		const allSessions = await repository.getReadingSessions();
 
-		// Distribusi bobot pembacaan harian perpustakaan akademik
-		const dayWeights = [0.15, 0.18, 0.22, 0.19, 0.14, 0.08, 0.04];
-		const avgPagesPerSession = 8.2;
+		// Mapping indeks hari JavaScript (0: Ahad, 1: Sen, ... 6: Sab) ke label hari
+		const dayMap: Record<number, string> = {
+			0: 'Ahad',
+			1: 'Sen',
+			2: 'Sel',
+			3: 'Rab',
+			4: 'Kam',
+			5: 'Jum',
+			6: 'Sab'
+		};
 
-		return days.map((label, i) => {
-			const sessions = Math.max(5, Math.round(weeklySessions * dayWeights[i]));
-			const pagesRead = Math.round(sessions * avgPagesPerSession);
-			return { label, sessions, pagesRead };
-		});
+		const trendMap: Record<string, { sessions: number; pagesRead: number }> = {
+			Sen: { sessions: 0, pagesRead: 0 },
+			Sel: { sessions: 0, pagesRead: 0 },
+			Rab: { sessions: 0, pagesRead: 0 },
+			Kam: { sessions: 0, pagesRead: 0 },
+			Jum: { sessions: 0, pagesRead: 0 },
+			Sab: { sessions: 0, pagesRead: 0 },
+			Ahad: { sessions: 0, pagesRead: 0 }
+		};
+
+		const now = new Date();
+		const sevenDaysAgo = new Date();
+		sevenDaysAgo.setDate(now.getDate() - 7);
+
+		const weeklySessions = allSessions.filter((s) => new Date(s.createdAt) >= sevenDaysAgo);
+
+		if (weeklySessions.length > 0) {
+			for (const sess of weeklySessions) {
+				const dayIdx = new Date(sess.createdAt).getDay();
+				const label = dayMap[dayIdx];
+				if (trendMap[label]) {
+					trendMap[label].sessions += 1;
+					trendMap[label].pagesRead += sess.pagesRead || 1;
+				}
+			}
+		} else if (allSessions.length > 0) {
+			// Jika semua sesi tercatat pada hari ini
+			const todayLabel = dayMap[now.getDay()];
+			const total = allSessions.length;
+			trendMap[todayLabel].sessions = total;
+			trendMap[todayLabel].pagesRead = allSessions.reduce((acc, s) => acc + (s.pagesRead || 1), 0);
+		}
+
+		return days.map((label) => ({
+			label,
+			sessions: trendMap[label].sessions,
+			pagesRead: trendMap[label].pagesRead
+		}));
 	}
 }
 

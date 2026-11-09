@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Menu, Plus, HardDrive } from 'lucide-svelte';
+	import { Menu, Plus, HardDrive, User } from 'lucide-svelte';
 
 	interface Stats {
 		storageUsedGB: number;
@@ -98,6 +98,15 @@
 		>
 			<Plus size={16} />
 			<span>Tambah Buku</span>
+		</a>
+
+		<!-- Profile Shortcut -->
+		<a
+			href="/admin/profil"
+			class="focus-library flex items-center justify-center rounded-md border border-ink/15 bg-sand/40 p-1.5 text-ink transition-colors hover:border-brick hover:bg-sand/70"
+			title="Profil Pustakawan"
+		>
+			<User size={16} class="text-brick" />
 		</a>
 	</div>
 </header>

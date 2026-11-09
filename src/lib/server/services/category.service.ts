@@ -31,6 +31,37 @@ export class CategoryService {
 		const tree = await repository.getDdcTree();
 		return tree.find((n) => n.code === code) ?? null;
 	}
+
+	/**
+	 * Tambah klasifikasi utama (koleksi khusus) atau sub-klasifikasi
+	 */
+	async addClassification(data: {
+		code: string;
+		name: string;
+		description?: string;
+		color?: 'brick' | 'terracotta' | 'sand' | 'ink';
+		parentCode?: string;
+		isCustom?: boolean;
+	}): Promise<{ success: boolean; message: string }> {
+		return repository.addClassification(data);
+	}
+
+	/**
+	 * Sunting nama, deskripsi, atau palet warna klasifikasi
+	 */
+	async updateClassification(
+		code: string,
+		updates: { name: string; description?: string; color?: 'brick' | 'terracotta' | 'sand' | 'ink' }
+	): Promise<{ success: boolean; message: string }> {
+		return repository.updateClassification(code, updates);
+	}
+
+	/**
+	 * Hapus klasifikasi dengan validasi keterikatan koleksi buku
+	 */
+	async deleteClassification(code: string): Promise<{ success: boolean; message: string }> {
+		return repository.deleteClassification(code);
+	}
 }
 
 export const categoryService = new CategoryService();

@@ -9,7 +9,9 @@
 		ExternalLink,
 		LogOut,
 		ShieldCheck,
-		X
+		X,
+		UserCheck,
+		AlertTriangle
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -44,6 +46,8 @@
 		return count.toString();
 	});
 
+	let isLogoutConfirmOpen = $state(false);
+
 	const navItems = $derived([
 		{
 			label: 'Ringkasan',
@@ -73,6 +77,12 @@
 			label: 'Pengaturan',
 			href: '/admin/pengaturan',
 			icon: Settings,
+			badge: undefined
+		},
+		{
+			label: 'Profil Pustakawan',
+			href: '/admin/profil',
+			icon: UserCheck,
 			badge: undefined
 		}
 	]);
@@ -192,33 +202,89 @@
 
 	<!-- Super Admin Profile & Status Footer -->
 	<div class="space-y-3 border-t border-ink/15 bg-sand/20 p-4">
-		<div class="flex items-center gap-3 rounded-md border border-ink/10 bg-sand/40 p-2">
+		<a
+			href="/admin/profil"
+			onclick={onClose}
+			class="group focus-library flex items-center gap-3 rounded-md border border-ink/10 bg-sand/40 p-2 transition-all hover:border-brick/40 hover:bg-sand/70"
+			title="Buka Pengaturan Profil Pustakawan"
+		>
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brick font-serif text-sm font-bold text-cream shadow-xs"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brick font-serif text-sm font-bold text-cream shadow-xs transition-transform group-hover:scale-105"
 			>
 				{userInitials}
 			</div>
 			<div class="min-w-0 flex-1">
 				<div class="flex items-center gap-1">
-					<p class="truncate text-xs font-bold text-ink">{userName}</p>
+					<p class="truncate text-xs font-bold text-ink transition-colors group-hover:text-brick">
+						{userName}
+					</p>
 					<span title="Pustakawan Terverifikasi"
 						><ShieldCheck size={12} class="shrink-0 text-brick" /></span
 					>
 				</div>
 				<p class="truncate font-mono text-[10px] text-ink-muted">
-					{userRole}
+					{userRole} &bull; <span class="underline">Kelola Profil</span>
 				</p>
 			</div>
-		</div>
+		</a>
 
-		<form method="POST" action="/admin/logout" class="w-full">
-			<button
-				type="submit"
-				class="focus-library flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-ink/20 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-brick hover:bg-sand/50 hover:text-brick"
-			>
-				<LogOut size={14} />
-				<span>Keluar Sistem</span>
-			</button>
-		</form>
+		<button
+			type="button"
+			onclick={() => (isLogoutConfirmOpen = true)}
+			class="focus-library flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-ink/20 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-brick hover:bg-sand/50 hover:text-brick"
+		>
+			<LogOut size={14} />
+			<span>Keluar Sistem</span>
+		</button>
 	</div>
 </aside>
+
+<!-- Logout Confirmation Dialog -->
+{#if isLogoutConfirmOpen}
+	<div
+		class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs duration-150"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="logout-title"
+	>
+		<div
+			class="catalog-card w-full max-w-sm space-y-4 rounded-lg border border-ink/15 bg-cream p-5 shadow-2xl"
+		>
+			<div class="flex items-start gap-3.5">
+				<div
+					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brick/15 text-brick"
+				>
+					<AlertTriangle size={20} />
+				</div>
+				<div>
+					<h3 id="logout-title" class="font-serif text-base font-bold text-ink">
+						Konfirmasi Keluar Sistem
+					</h3>
+					<p class="mt-1 text-xs leading-relaxed text-ink-muted">
+						Apakah Anda yakin ingin mengakhiri sesi pustakawan saat ini? Anda perlu memasukkan
+						kredensial kembali untuk mengakses portal admin ElibUMKO.
+					</p>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 border-t border-ink/10 pt-3">
+				<button
+					type="button"
+					onclick={() => (isLogoutConfirmOpen = false)}
+					class="focus-library rounded-md border border-ink/20 px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-sand/60"
+				>
+					Batal
+				</button>
+				<form method="POST" action="/admin/logout">
+					<button
+						type="submit"
+						class="focus-library flex items-center gap-1.5 rounded-md bg-brick px-3.5 py-1.5 text-xs font-semibold text-cream shadow-xs transition-colors hover:bg-brick/90"
+					>
+						<LogOut size={13} />
+						<span>Ya, Keluar Sistem</span>
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+{/if}

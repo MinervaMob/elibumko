@@ -5,9 +5,10 @@
 	interface Props {
 		activities: ActivityLogItem[];
 		class?: string;
+		showViewAll?: boolean;
 	}
 
-	let { activities, class: className = '' }: Props = $props();
+	let { activities, class: className = '', showViewAll = true }: Props = $props();
 
 	function getActionIcon(action: ActivityLogItem['action']) {
 		switch (action) {
@@ -49,55 +50,68 @@
 				Aktivitas Pustakawan Terkini
 			</h3>
 		</div>
-		<a
-			href="/admin/aktivitas"
-			class="focus-library rounded text-xs font-semibold text-brick hover:underline"
-		>
-			Lihat Semua Log →
-		</a>
+		{#if showViewAll}
+			<a
+				href="/admin/aktivitas"
+				class="focus-library rounded text-xs font-semibold text-brick hover:underline"
+			>
+				Lihat Semua Log →
+			</a>
+		{/if}
 	</div>
 
 	<!-- Activity Timeline -->
-	<div class="mt-4 space-y-4">
-		{#each activities as act (act.id)}
-			{@const Icon = getActionIcon(act.action)}
-			{@const badge = getActionBadge(act.action)}
-			<div class="group flex items-start gap-3">
-				<!-- Icon pill -->
-				<div class="shrink-0 rounded-md border border-ink/10 p-2 {badge.bg}" title={badge.label}>
-					<Icon size={15} />
-				</div>
-
-				<!-- Content -->
-				<div class="min-w-0 flex-1">
-					<div class="flex items-center justify-between gap-2">
-						<span class="truncate text-xs font-semibold text-ink sm:text-sm">
-							{act.userName}
-						</span>
-						<span class="shrink-0 font-mono text-[10px] text-ink-muted">
-							{act.timestamp}
-						</span>
+	{#if activities.length === 0}
+		<div class="py-8 text-center">
+			<History size={28} class="mx-auto mb-2 text-ink-muted/50" />
+			<p class="font-serif text-sm font-bold text-ink">Belum Ada Aktivitas Pustakawan</p>
+			<p class="mx-auto mt-1 max-w-xs text-xs text-ink-muted">
+				Catatan unggah naskah, sunting katalog, dan pemeliharaan server akan tercatat di sini secara
+				otomatis.
+			</p>
+		</div>
+	{:else}
+		<div class="mt-4 space-y-4">
+			{#each activities as act (act.id)}
+				{@const Icon = getActionIcon(act.action)}
+				{@const badge = getActionBadge(act.action)}
+				<div class="group flex items-start gap-3">
+					<!-- Icon pill -->
+					<div class="shrink-0 rounded-md border border-ink/10 p-2 {badge.bg}" title={badge.label}>
+						<Icon size={15} />
 					</div>
 
-					<p class="mt-0.5 text-xs leading-snug text-ink-muted">
-						{act.description}
-					</p>
-
-					{#if act.targetTitle}
-						<div class="mt-1">
-							<a
-								href="/buku/{act.targetSlug}"
-								target="_blank"
-								rel="noopener noreferrer"
-								class="inline-flex items-center gap-1 font-serif text-[11px] leading-tight font-bold text-brick hover:underline"
-							>
-								<span class="truncate">{act.targetTitle}</span>
-								<ArrowUpRight size={11} class="shrink-0" />
-							</a>
+					<!-- Content -->
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center justify-between gap-2">
+							<span class="truncate text-xs font-semibold text-ink sm:text-sm">
+								{act.userName}
+							</span>
+							<span class="shrink-0 font-mono text-[10px] text-ink-muted">
+								{act.timestamp}
+							</span>
 						</div>
-					{/if}
+
+						<p class="mt-0.5 text-xs leading-snug text-ink-muted">
+							{act.description}
+						</p>
+
+						{#if act.targetTitle}
+							<div class="mt-1">
+								<a
+									href="/buku/{act.targetSlug}"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="inline-flex items-center gap-1 font-serif text-[11px] leading-tight font-bold text-brick hover:underline"
+								>
+									<span class="truncate">{act.targetTitle}</span>
+									<ArrowUpRight size={11} class="shrink-0" />
+								</a>
+							</div>
+						{/if}
+					</div>
 				</div>
-			</div>
-		{/each}
-	</div>
+			{/each}
+		</div>
+	{/if}
 </div>

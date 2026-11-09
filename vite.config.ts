@@ -5,6 +5,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	server: {
+		watch: {
+			ignored: ['**/storage/**', '**/storage/**/*', '**/.git/**']
+		}
+	},
 	plugins: [
 		enhancedImages(),
 		tailwindcss(),
