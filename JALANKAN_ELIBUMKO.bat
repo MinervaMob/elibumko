@@ -54,8 +54,9 @@ echo [OK] Komputer Server Siap!
 echo ---------------------------------------------------------------------
 echo  ALAMAT AKSES SISTEM PERPUSTAKAAN:
 echo.
-echo    [1] Komputer Ini (Server Pustakawan) : http://localhost:5173
-echo    [2] Laptop/HP Mahasiswa & Dosen (Wi-Fi): http://!LOCAL_IP!:5173
+echo    [1] Komputer Ini (Server Pustakawan)    : http://localhost:5173
+echo    [2] Laptop/HP Mahasiswa via IP Wi-Fi    : http://!LOCAL_IP!:5173
+echo    [3] Laptop/HP Mahasiswa via Nama Domain : http://%COMPUTERNAME%.local:5173
 echo ---------------------------------------------------------------------
 echo.
 echo * Catatan untuk Penjaga Perpustakaan:
