@@ -27,6 +27,11 @@ Perangkat pengguna (HP/Laptop) dan Komputer Server Perpustakaan **harus terhubun
 
 ## 🛠️ 2. Best Practice Setup Komputer Server Windows 11 (Cukup Sekali di Awal)
 
+> [!NOTE]
+> **Jika Mengunduh Berkas ZIP dari GitHub:**
+> Berkas `.env` dan `node_modules` memang tidak disertakan di GitHub (standar industri). Anda **tidak perlu repot membuat file .env manual ataupun mengetik `npm install`** di terminal!
+> Skrip [`JALANKAN_ELIBUMKO.bat`](file:///home/ilhampangestu/Documents/Project/elibumko/JALANKAN_ELIBUMKO.bat) dan [`BUAT_SHORTCUT_DESKTOP.bat`](file:///home/ilhampangestu/Documents/Project/elibumko/BUAT_SHORTCUT_DESKTOP.bat) kami sudah diprogram untuk **mendeteksi dan otomatis membuatkan `.env` serta menjalankan `npm install` sendiri** saat pertama kali diklik.
+
 Agar komputer Windows 11 berfungsi andal sebagai server lokal perpustakaan, lakukan 4 langkah praktis berikut:
 
 ### Langkah A: Buka Izin Port Firewall Windows 11 (1-Klik Otomatis)

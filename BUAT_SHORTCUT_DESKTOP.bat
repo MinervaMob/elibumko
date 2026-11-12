@@ -14,6 +14,26 @@ set "PROJECT_DIR=%~dp0"
 :: Hilangkan trailing slash
 set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 
+:: Cek dan buatkan .env otomatis jika unduh dari ZIP GitHub
+if not exist "%PROJECT_DIR%\.env" (
+    echo [INFO] Berkas konfigurasi .env belum ada, membuatkan otomatis...
+    (
+        echo # Drizzle Database
+        echo DATABASE_URL="postgres://root:mysecretpassword@localhost:5432/local"
+        echo.
+        echo ORIGIN="http://localhost:5173"
+        echo.
+        echo # Better Auth Secret
+        echo BETTER_AUTH_SECRET="c131691b-25ac-4ac9-9912-e5aeb25e36b8"
+        echo.
+        echo # Kredensial Pustakawan Default:
+        echo # Email: pustakawan@umko.ac.id
+        echo # Password: pustakawan123
+    ) > "%PROJECT_DIR%\.env"
+    echo [OK] Berkas .env siap.
+    echo.
+)
+
 echo Membuat pintasan di Desktop Windows...
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^

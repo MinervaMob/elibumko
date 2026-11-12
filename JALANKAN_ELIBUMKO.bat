@@ -24,19 +24,46 @@ if %errorlevel% neq 0 (
 :: 2. Masuk ke direktori aplikasi
 cd /d "%~dp0"
 
-:: 3. Cek node_modules
+:: 3. Cek berkas konfigurasi .env (Otomatis dibuat jika unduh dari ZIP GitHub)
+if not exist ".env" (
+    echo [INFO] Berkas konfigurasi .env belum ditemukan.
+    echo [INFO] Membuat berkas .env otomatis dengan konfigurasi lokal...
+    (
+        echo # Drizzle Database
+        echo DATABASE_URL="postgres://root:mysecretpassword@localhost:5432/local"
+        echo.
+        echo ORIGIN="http://localhost:5173"
+        echo.
+        echo # Better Auth Secret
+        echo BETTER_AUTH_SECRET="c131691b-25ac-4ac9-9912-e5aeb25e36b8"
+        echo.
+        echo # Kredensial Pustakawan Default:
+        echo # Email: pustakawan@umko.ac.id
+        echo # Password: pustakawan123
+    ) > ".env"
+    echo [OK] Berkas .env berhasil dibuat secara otomatis!
+    echo.
+)
+
+:: 4. Cek node_modules (Otomatis jalankan npm install jika pertama kali)
 if not exist "node_modules\" (
-    echo [INFO] Menyiapkan modul aplikasi pertama kali...
-    echo Mohon tunggu sebentar...
+    echo [INFO] Menyiapkan modul aplikasi pertama kali (npm install)...
+    echo Mohon tunggu 1-2 menit hingga proses pengunduhan modul selesai...
+    echo (Langkah ini hanya berjalan 1 kali saja saat awal unduh dari GitHub)
+    echo.
     call npm install
     if %errorlevel% neq 0 (
-        echo [ERROR] Gagal memasang modul aplikasi. Periksa koneksi internet Anda.
+        echo.
+        echo [ERROR] Gagal memasang modul aplikasi.
+        echo Pastikan komputer terhubung ke internet untuk instalasi awal.
         pause
         exit /b 1
     )
+    echo [OK] Modul aplikasi berhasil terpasang!
+    echo.
 )
 
-:: 4. Deteksi Alamat IP Lokal untuk Akses Wi-Fi / LAN Kampus
+:: 5. Deteksi Alamat IP Lokal untuk Akses Wi-Fi / LAN Kampus
 set "LOCAL_IP=localhost"
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" 2^>nul') do (
     set "IP_TEMP=%%a"
