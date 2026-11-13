@@ -118,7 +118,7 @@ let inMemorySettings: LibrarySettings = initPersistedData<LibrarySettings>('sett
 // Circuit Breaker: Cache DB offline status so queries fail-over immediately without socket timeouts
 let isPostgresAvailable: boolean | null = null;
 let lastDbCheck = 0;
-const DB_CHECK_INTERVAL = 30000;
+const DB_CHECK_INTERVAL = 60000;
 
 export async function isDbOnline(): Promise<boolean> {
 	const now = Date.now();
@@ -127,9 +127,11 @@ export async function isDbOnline(): Promise<boolean> {
 	}
 	lastDbCheck = now;
 	try {
+		const ping = db.execute(sql`SELECT 1`);
+		ping.catch(() => {});
 		await Promise.race([
-			db.execute(sql`SELECT 1`),
-			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
+			ping,
+			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 200))
 		]);
 		isPostgresAvailable = true;
 	} catch {
@@ -152,49 +154,51 @@ export const repository = {
 		ddcCode?: string;
 		includeDeleted?: boolean;
 	}): Promise<BookData[]> {
-		try {
-			const conditions = [];
-			if (!options?.includeDeleted) {
-				conditions.push(isNull(schema.books.deletedAt));
-			}
-			if (options?.category && options.category !== 'Semua') {
-				conditions.push(eq(schema.books.category, options.category));
-			}
-			if (options?.ddcCode) {
-				conditions.push(eq(schema.books.ddcCode, options.ddcCode));
-			}
-			if (options?.search?.trim()) {
-				const q = `%${options.search.trim().toLowerCase()}%`;
-				conditions.push(
-					or(
-						like(schema.books.title, q),
-						like(schema.books.author, q),
-						like(schema.books.classification, q)
-					)
-				);
-			}
+		if (await isDbOnline()) {
+			try {
+				const conditions = [];
+				if (!options?.includeDeleted) {
+					conditions.push(isNull(schema.books.deletedAt));
+				}
+				if (options?.category && options.category !== 'Semua') {
+					conditions.push(eq(schema.books.category, options.category));
+				}
+				if (options?.ddcCode) {
+					conditions.push(eq(schema.books.ddcCode, options.ddcCode));
+				}
+				if (options?.search?.trim()) {
+					const q = `%${options.search.trim().toLowerCase()}%`;
+					conditions.push(
+						or(
+							like(schema.books.title, q),
+							like(schema.books.author, q),
+							like(schema.books.classification, q)
+						)
+					);
+				}
 
-			const results = await db
-				.select()
-				.from(schema.books)
-				.where(conditions.length > 0 ? and(...conditions) : undefined)
-				.orderBy(desc(schema.books.createdAt));
+				const results = await db
+					.select()
+					.from(schema.books)
+					.where(conditions.length > 0 ? and(...conditions) : undefined)
+					.orderBy(desc(schema.books.createdAt));
 
-			if (results.length > 0) {
-				return results.map((r) => ({
-					...r,
-					id: r.id,
-					year: r.year ?? undefined,
-					pages: r.pages ?? undefined,
-					fileType: r.fileType ?? 'pdf',
-					isFeatured: r.isFeatured ?? false,
-					tags: (r.tags as string[]) ?? [],
-					toc: (r.toc as TableOfContentItem[]) ?? [],
-					createdAt: r.createdAt.toISOString()
-				}));
+				if (results.length > 0) {
+					return results.map((r) => ({
+						...r,
+						id: r.id,
+						year: r.year ?? undefined,
+						pages: r.pages ?? undefined,
+						fileType: r.fileType ?? 'pdf',
+						isFeatured: r.isFeatured ?? false,
+						tags: (r.tags as string[]) ?? [],
+						toc: (r.toc as TableOfContentItem[]) ?? [],
+						createdAt: r.createdAt.toISOString()
+					}));
+				}
+			} catch {
+				// Fallback to in-memory store
 			}
-		} catch {
-			// Fallback to in-memory store
 		}
 
 		// Return from in-memory store
@@ -212,29 +216,31 @@ export const repository = {
 	},
 
 	async getBookBySlug(slug: string): Promise<BookData | null> {
-		try {
-			const results = await db
-				.select()
-				.from(schema.books)
-				.where(and(eq(schema.books.slug, slug), isNull(schema.books.deletedAt)))
-				.limit(1);
+		if (await isDbOnline()) {
+			try {
+				const results = await db
+					.select()
+					.from(schema.books)
+					.where(and(eq(schema.books.slug, slug), isNull(schema.books.deletedAt)))
+					.limit(1);
 
-			if (results.length > 0) {
-				const r = results[0];
-				return {
-					...r,
-					id: r.id,
-					year: r.year ?? undefined,
-					pages: r.pages ?? undefined,
-					fileType: r.fileType ?? 'pdf',
-					isFeatured: r.isFeatured ?? false,
-					tags: (r.tags as string[]) ?? [],
-					toc: (r.toc as TableOfContentItem[]) ?? [],
-					createdAt: r.createdAt.toISOString()
-				};
+				if (results.length > 0) {
+					const r = results[0];
+					return {
+						...r,
+						id: r.id,
+						year: r.year ?? undefined,
+						pages: r.pages ?? undefined,
+						fileType: r.fileType ?? 'pdf',
+						isFeatured: r.isFeatured ?? false,
+						tags: (r.tags as string[]) ?? [],
+						toc: (r.toc as TableOfContentItem[]) ?? [],
+						createdAt: r.createdAt.toISOString()
+					};
+				}
+			} catch {
+				// Fallback
 			}
-		} catch {
-			// Fallback
 		}
 
 		return inMemoryBooks.find((b) => b.slug === slug) ?? null;
@@ -264,52 +270,54 @@ export const repository = {
 	}): Promise<BookData> {
 		const slug = slugify(data.title) + '-' + Math.random().toString(36).slice(2, 6);
 
-		try {
-			const [inserted] = await db
-				.insert(schema.books)
-				.values({
-					title: data.title,
-					slug,
-					author: data.author,
-					publisher: data.publisher,
-					year: data.year,
-					edition: data.edition,
-					isbn: data.isbn,
-					pages: data.pages,
-					language: data.language ?? 'Bahasa Indonesia',
-					coverUrl: data.coverUrl,
-					classification: data.classification,
-					ddcCode: data.ddcCode,
-					ddcName: data.ddcName,
-					category: data.category,
-					tags: data.tags ?? [],
-					synopsis: data.synopsis,
-					toc: data.toc ?? [],
-					isFeatured: data.isFeatured ?? false,
-					fileType: data.fileType ?? 'pdf',
-					filePath: data.filePath,
-					fileSize: data.fileSize
-				})
-				.returning();
+		if (await isDbOnline()) {
+			try {
+				const [inserted] = await db
+					.insert(schema.books)
+					.values({
+						title: data.title,
+						slug,
+						author: data.author,
+						publisher: data.publisher,
+						year: data.year,
+						edition: data.edition,
+						isbn: data.isbn,
+						pages: data.pages,
+						language: data.language ?? 'Bahasa Indonesia',
+						coverUrl: data.coverUrl,
+						classification: data.classification,
+						ddcCode: data.ddcCode,
+						ddcName: data.ddcName,
+						category: data.category,
+						tags: data.tags ?? [],
+						synopsis: data.synopsis,
+						toc: data.toc ?? [],
+						isFeatured: data.isFeatured ?? false,
+						fileType: data.fileType ?? 'pdf',
+						filePath: data.filePath,
+						fileSize: data.fileSize
+					})
+					.returning();
 
-			if (inserted) {
-				const created: BookData = {
-					...inserted,
-					id: inserted.id,
-					year: inserted.year ?? undefined,
-					pages: inserted.pages ?? undefined,
-					fileType: inserted.fileType ?? 'pdf',
-					tags: (inserted.tags as string[]) ?? [],
-					toc: (inserted.toc as TableOfContentItem[]) ?? [],
-					createdAt: inserted.createdAt.toISOString()
-				};
-				// Keep in-memory store in sync
-				inMemoryBooks.unshift(created);
-				savePersistedData('books.json', inMemoryBooks);
-				return created;
+				if (inserted) {
+					const created: BookData = {
+						...inserted,
+						id: inserted.id,
+						year: inserted.year ?? undefined,
+						pages: inserted.pages ?? undefined,
+						fileType: inserted.fileType ?? 'pdf',
+						tags: (inserted.tags as string[]) ?? [],
+						toc: (inserted.toc as TableOfContentItem[]) ?? [],
+						createdAt: inserted.createdAt.toISOString()
+					};
+					// Keep in-memory store in sync
+					inMemoryBooks.unshift(created);
+					savePersistedData('books.json', inMemoryBooks);
+					return created;
+				}
+			} catch {
+				// Fallback
 			}
-		} catch {
-			// Fallback
 		}
 
 		const newBook: BookData = {
@@ -325,53 +333,55 @@ export const repository = {
 	},
 
 	async updateBook(slug: string, updates: Partial<BookData>): Promise<BookData | null> {
-		try {
-			const [updated] = await db
-				.update(schema.books)
-				.set({
-					title: updates.title,
-					author: updates.author,
-					publisher: updates.publisher,
-					year: typeof updates.year === 'number' ? updates.year : undefined,
-					edition: updates.edition,
-					isbn: updates.isbn,
-					pages: updates.pages,
-					language: updates.language,
-					classification: updates.classification,
-					ddcCode: updates.ddcCode,
-					ddcName: updates.ddcName,
-					category: updates.category,
-					tags: updates.tags,
-					synopsis: updates.synopsis,
-					toc: updates.toc,
-					isFeatured: updates.isFeatured,
-					fileType: updates.fileType,
-					filePath: updates.filePath,
-					fileSize: updates.fileSize,
-					coverUrl: updates.coverUrl,
-					updatedAt: new Date()
-				})
-				.where(eq(schema.books.slug, slug))
-				.returning();
+		if (await isDbOnline()) {
+			try {
+				const [updated] = await db
+					.update(schema.books)
+					.set({
+						title: updates.title,
+						author: updates.author,
+						publisher: updates.publisher,
+						year: typeof updates.year === 'number' ? updates.year : undefined,
+						edition: updates.edition,
+						isbn: updates.isbn,
+						pages: updates.pages,
+						language: updates.language,
+						classification: updates.classification,
+						ddcCode: updates.ddcCode,
+						ddcName: updates.ddcName,
+						category: updates.category,
+						tags: updates.tags,
+						synopsis: updates.synopsis,
+						toc: updates.toc,
+						isFeatured: updates.isFeatured,
+						fileType: updates.fileType,
+						filePath: updates.filePath,
+						fileSize: updates.fileSize,
+						coverUrl: updates.coverUrl,
+						updatedAt: new Date()
+					})
+					.where(eq(schema.books.slug, slug))
+					.returning();
 
-			if (updated) {
-				const res: BookData = {
-					...updated,
-					id: updated.id,
-					year: updated.year ?? undefined,
-					pages: updated.pages ?? undefined,
-					fileType: updated.fileType ?? 'pdf',
-					tags: (updated.tags as string[]) ?? [],
-					toc: (updated.toc as TableOfContentItem[]) ?? [],
-					createdAt: updated.createdAt.toISOString()
-				};
-				const idx = inMemoryBooks.findIndex((b) => b.slug === slug);
-				if (idx !== -1) inMemoryBooks[idx] = res;
-				savePersistedData('books.json', inMemoryBooks);
-				return res;
+				if (updated) {
+					const res: BookData = {
+						...updated,
+						id: updated.id,
+						year: updated.year ?? undefined,
+						pages: updated.pages ?? undefined,
+						fileType: updated.fileType ?? 'pdf',
+						tags: (updated.tags as string[]) ?? [],
+						toc: (updated.toc as TableOfContentItem[]) ?? [],
+						createdAt: updated.createdAt.toISOString()
+					};
+					const idx = inMemoryBooks.findIndex((b) => b.slug === slug);
+					if (idx !== -1) inMemoryBooks[idx] = res;
+					savePersistedData('books.json', inMemoryBooks);
+					return res;
+				}
+			} catch {
+				// Fallback
 			}
-		} catch {
-			// Fallback
 		}
 
 		const idx = inMemoryBooks.findIndex((b) => b.slug === slug);
@@ -384,13 +394,15 @@ export const repository = {
 	},
 
 	async deleteBook(slug: string): Promise<boolean> {
-		try {
-			await db
-				.update(schema.books)
-				.set({ deletedAt: new Date() })
-				.where(eq(schema.books.slug, slug));
-		} catch {
-			// Fallback
+		if (await isDbOnline()) {
+			try {
+				await db
+					.update(schema.books)
+					.set({ deletedAt: new Date() })
+					.where(eq(schema.books.slug, slug));
+			} catch {
+				// Fallback
+			}
 		}
 
 		const initialLen = inMemoryBooks.length;
@@ -403,29 +415,31 @@ export const repository = {
 	},
 
 	async getActivityLogs(): Promise<ActivityLogItem[]> {
-		try {
-			const logs = await db
-				.select()
-				.from(schema.activityLogs)
-				.orderBy(desc(schema.activityLogs.createdAt))
-				.limit(20);
+		if (await isDbOnline()) {
+			try {
+				const logs = await db
+					.select()
+					.from(schema.activityLogs)
+					.orderBy(desc(schema.activityLogs.createdAt))
+					.limit(20);
 
-			if (logs.length > 0) {
-				return logs.map((l) => ({
-					id: l.id,
-					action: l.action as ActivityLogItem['action'],
-					description: l.description,
-					targetTitle: l.targetTitle ?? undefined,
-					targetSlug: l.targetSlug ?? undefined,
-					userName: l.userName,
-					timestamp: l.createdAt.toLocaleTimeString('id-ID', {
-						hour: '2-digit',
-						minute: '2-digit'
-					})
-				}));
+				if (logs.length > 0) {
+					return logs.map((l) => ({
+						id: l.id,
+						action: l.action as ActivityLogItem['action'],
+						description: l.description,
+						targetTitle: l.targetTitle ?? undefined,
+						targetSlug: l.targetSlug ?? undefined,
+						userName: l.userName,
+						timestamp: l.createdAt.toLocaleTimeString('id-ID', {
+							hour: '2-digit',
+							minute: '2-digit'
+						})
+					}));
+				}
+			} catch {
+				// Fallback
 			}
-		} catch {
-			// Fallback
 		}
 		return inMemoryActivities;
 	},
@@ -453,35 +467,39 @@ export const repository = {
 		}
 		savePersistedData('activities.json', inMemoryActivities);
 
-		try {
-			await db.insert(schema.activityLogs).values({
-				id: newLog.id,
-				action,
-				description,
-				targetTitle,
-				targetSlug,
-				userName: effectiveUserName
-			});
+		if (await isDbOnline()) {
+			try {
+				await db.insert(schema.activityLogs).values({
+					id: newLog.id,
+					action,
+					description,
+					targetTitle,
+					targetSlug,
+					userName: effectiveUserName
+				});
 
-			// Rolling window: Prune logs exceeding MAX_ACTIVITY_LOGS from database
-			await db.execute(
-				sql`DELETE FROM activity_logs WHERE id NOT IN (
-					SELECT id FROM activity_logs ORDER BY created_at DESC LIMIT ${MAX_ACTIVITY_LOGS}
-				)`
-			);
-		} catch {
-			// Ignore if DB is offline
+				// Rolling window: Prune logs exceeding MAX_ACTIVITY_LOGS from database
+				await db.execute(
+					sql`DELETE FROM activity_logs WHERE id NOT IN (
+						SELECT id FROM activity_logs ORDER BY created_at DESC LIMIT ${MAX_ACTIVITY_LOGS}
+					)`
+				);
+			} catch {
+				// Ignore if DB is offline
+			}
 		}
 	},
 
 	async incrementReaders(slug: string): Promise<void> {
-		try {
-			await db
-				.update(schema.books)
-				.set({ readersCount: sql`${schema.books.readersCount} + 1` })
-				.where(eq(schema.books.slug, slug));
-		} catch {
-			// Ignore if DB offline
+		if (await isDbOnline()) {
+			try {
+				await db
+					.update(schema.books)
+					.set({ readersCount: sql`${schema.books.readersCount} + 1` })
+					.where(eq(schema.books.slug, slug));
+			} catch {
+				// Ignore if DB offline
+			}
 		}
 		const book = inMemoryBooks.find((b) => b.slug === slug);
 		if (book) {
@@ -539,44 +557,48 @@ export const repository = {
 		// Increment book reader view count
 		await this.incrementReaders(params.bookSlug);
 
-		try {
-			await db.insert(schema.readingSessions).values({
-				id: newSession.id,
-				bookSlug: newSession.bookSlug,
-				deviceHash: newSession.deviceHash,
-				role: newSession.role,
-				pagesRead: newSession.pagesRead,
-				createdAt: now,
-				lastActivityAt: now
-			});
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db.insert(schema.readingSessions).values({
+					id: newSession.id,
+					bookSlug: newSession.bookSlug,
+					deviceHash: newSession.deviceHash,
+					role: newSession.role,
+					pagesRead: newSession.pagesRead,
+					createdAt: now,
+					lastActivityAt: now
+				});
+			} catch {
+				// DB fallback
+			}
 		}
 
 		return { isNewSession: true };
 	},
 
 	async getReadingSessions(): Promise<ReadingSessionRecord[]> {
-		try {
-			const rows = await db
-				.select()
-				.from(schema.readingSessions)
-				.orderBy(desc(schema.readingSessions.createdAt))
-				.limit(1000);
+		if (await isDbOnline()) {
+			try {
+				const rows = await db
+					.select()
+					.from(schema.readingSessions)
+					.orderBy(desc(schema.readingSessions.createdAt))
+					.limit(1000);
 
-			if (rows.length > 0) {
-				return rows.map((r) => ({
-					id: r.id,
-					bookSlug: r.bookSlug,
-					deviceHash: r.deviceHash,
-					role: r.role,
-					pagesRead: r.pagesRead,
-					createdAt: r.createdAt.toISOString(),
-					lastActivityAt: r.lastActivityAt.toISOString()
-				}));
+				if (rows.length > 0) {
+					return rows.map((r) => ({
+						id: r.id,
+						bookSlug: r.bookSlug,
+						deviceHash: r.deviceHash,
+						role: r.role,
+						pagesRead: r.pagesRead,
+						createdAt: r.createdAt.toISOString(),
+						lastActivityAt: r.lastActivityAt.toISOString()
+					}));
+				}
+			} catch {
+				// DB fallback
 			}
-		} catch {
-			// DB fallback
 		}
 
 		// If in-memory is empty but we have books with readersCount, generate consistent sessions
@@ -612,13 +634,16 @@ export const repository = {
 			}
 		}
 		savePersistedData('sessions.json', inMemoryReadingSessions);
-		try {
-			await db
-				.update(schema.readingSessions)
-				.set({ role })
-				.where(eq(schema.readingSessions.deviceHash, deviceHash));
-		} catch {
-			// DB fallback
+
+		if (await isDbOnline()) {
+			try {
+				await db
+					.update(schema.readingSessions)
+					.set({ role })
+					.where(eq(schema.readingSessions.deviceHash, deviceHash));
+			} catch {
+				// DB fallback
+			}
 		}
 	},
 
@@ -638,61 +663,63 @@ export const repository = {
 	async getDdcTree(): Promise<ClassificationNode[]> {
 		const allBooks = await this.getBooks();
 
-		try {
-			const rows = await db
-				.select()
-				.from(schema.classifications)
-				.orderBy(schema.classifications.sortOrder, schema.classifications.code);
+		if (await isDbOnline()) {
+			try {
+				const rows = await db
+					.select()
+					.from(schema.classifications)
+					.orderBy(schema.classifications.sortOrder, schema.classifications.code);
 
-			if (rows.length > 0) {
-				const mainNodes = rows.filter((r) => !r.parentCode);
-				const subNodes = rows.filter((r) => !!r.parentCode);
+				if (rows.length > 0) {
+					const mainNodes = rows.filter((r) => !r.parentCode);
+					const subNodes = rows.filter((r) => !!r.parentCode);
 
-				return mainNodes.map((main) => {
-					const nodeBooks = allBooks.filter(
-						(b) =>
-							b.ddcCode === main.code ||
-							(b.classification && b.classification.startsWith(main.code))
-					);
-					const children = subNodes
-						.filter((s) => s.parentCode === main.code)
-						.map((sub) => {
-							const subBooks = allBooks.filter(
-								(b) =>
-									b.classification === sub.code ||
-									(b.classification && b.classification.startsWith(sub.code))
-							);
-							return {
-								code: sub.code,
-								name: sub.name,
-								count: subBooks.length
-							};
-						});
+					return mainNodes.map((main) => {
+						const nodeBooks = allBooks.filter(
+							(b) =>
+								b.ddcCode === main.code ||
+								(b.classification && b.classification.startsWith(main.code))
+						);
+						const children = subNodes
+							.filter((s) => s.parentCode === main.code)
+							.map((sub) => {
+								const subBooks = allBooks.filter(
+									(b) =>
+										b.classification === sub.code ||
+										(b.classification && b.classification.startsWith(sub.code))
+								);
+								return {
+									code: sub.code,
+									name: sub.name,
+									count: subBooks.length
+								};
+							});
 
-					return {
-						code: main.code,
-						name: main.name,
-						description: main.description ?? undefined,
-						color: (main.color as 'brick' | 'terracotta' | 'sand' | 'ink') || 'brick',
-						count: nodeBooks.length,
-						isCustom: ![
-							'000',
-							'100',
-							'200',
-							'300',
-							'400',
-							'500',
-							'600',
-							'700',
-							'800',
-							'900'
-						].includes(main.code),
-						subclasses: children
-					};
-				});
+						return {
+							code: main.code,
+							name: main.name,
+							description: main.description ?? undefined,
+							color: (main.color as 'brick' | 'terracotta' | 'sand' | 'ink') || 'brick',
+							count: nodeBooks.length,
+							isCustom: ![
+								'000',
+								'100',
+								'200',
+								'300',
+								'400',
+								'500',
+								'600',
+								'700',
+								'800',
+								'900'
+							].includes(main.code),
+							subclasses: children
+						};
+					});
+				}
+			} catch {
+				// Fallback to in-memory tree
 			}
-		} catch {
-			// Fallback to in-memory tree
 		}
 
 		return inMemoryDdcTree.map((node) => {
@@ -758,23 +785,25 @@ export const repository = {
 			});
 			savePersistedData('classifications.json', inMemoryDdcTree);
 
-			try {
-				await db
-					.insert(schema.classifications)
-					.values({
-						code: cleanCode,
-						name: cleanName,
-						description: data.description,
-						color: data.color || 'brick',
-						parentCode: data.parentCode,
-						count: 0
-					})
-					.onConflictDoUpdate({
-						target: schema.classifications.code,
-						set: { name: cleanName, description: data.description }
-					});
-			} catch {
-				// DB fallback
+			if (await isDbOnline()) {
+				try {
+					await db
+						.insert(schema.classifications)
+						.values({
+							code: cleanCode,
+							name: cleanName,
+							description: data.description,
+							color: data.color || 'brick',
+							parentCode: data.parentCode,
+							count: 0
+						})
+						.onConflictDoUpdate({
+							target: schema.classifications.code,
+							set: { name: cleanName, description: data.description }
+						});
+				} catch {
+					// DB fallback
+				}
 			}
 
 			await this.addActivityLog(
@@ -805,24 +834,26 @@ export const repository = {
 		inMemoryDdcTree.push(newNode);
 		savePersistedData('classifications.json', inMemoryDdcTree);
 
-		try {
-			await db
-				.insert(schema.classifications)
-				.values({
-					code: cleanCode,
-					name: cleanName,
-					description: data.description,
-					color: data.color || 'brick',
-					parentCode: null,
-					count: 0,
-					sortOrder: 50
-				})
-				.onConflictDoUpdate({
-					target: schema.classifications.code,
-					set: { name: cleanName, description: data.description }
-				});
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db
+					.insert(schema.classifications)
+					.values({
+						code: cleanCode,
+						name: cleanName,
+						description: data.description,
+						color: data.color || 'brick',
+						parentCode: null,
+						count: 0,
+						sortOrder: 50
+					})
+					.onConflictDoUpdate({
+						target: schema.classifications.code,
+						set: { name: cleanName, description: data.description }
+					});
+			} catch {
+				// DB fallback
+			}
 		}
 
 		await this.addActivityLog(
@@ -866,17 +897,19 @@ export const repository = {
 		}
 		savePersistedData('classifications.json', inMemoryDdcTree);
 
-		try {
-			await db
-				.update(schema.classifications)
-				.set({
-					name: cleanName,
-					description: updates.description,
-					color: updates.color
-				})
-				.where(eq(schema.classifications.code, cleanCode));
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db
+					.update(schema.classifications)
+					.set({
+						name: cleanName,
+						description: updates.description,
+						color: updates.color
+					})
+					.where(eq(schema.classifications.code, cleanCode));
+			} catch {
+				// DB fallback
+			}
 		}
 
 		await this.addActivityLog(
@@ -925,10 +958,12 @@ export const repository = {
 			}
 			const removed = inMemoryDdcTree.splice(mainIndex, 1)[0];
 			savePersistedData('classifications.json', inMemoryDdcTree);
-			try {
-				await db.delete(schema.classifications).where(eq(schema.classifications.code, cleanCode));
-			} catch {
-				// DB fallback
+			if (await isDbOnline()) {
+				try {
+					await db.delete(schema.classifications).where(eq(schema.classifications.code, cleanCode));
+				} catch {
+					// DB fallback
+				}
 			}
 			await this.addActivityLog('delete', `Menghapus klasifikasi: [${cleanCode}] ${removed.name}`);
 			return { success: true, message: `Klasifikasi ${cleanCode} berhasil dihapus.` };
@@ -941,10 +976,14 @@ export const repository = {
 			if (subIndex !== -1) {
 				const removedSub = parent.subclasses.splice(subIndex, 1)[0];
 				savePersistedData('classifications.json', inMemoryDdcTree);
-				try {
-					await db.delete(schema.classifications).where(eq(schema.classifications.code, cleanCode));
-				} catch {
-					// DB fallback
+				if (await isDbOnline()) {
+					try {
+						await db
+							.delete(schema.classifications)
+							.where(eq(schema.classifications.code, cleanCode));
+					} catch {
+						// DB fallback
+					}
 				}
 				await this.addActivityLog(
 					'delete',
@@ -961,40 +1000,42 @@ export const repository = {
 		popularQueries: SearchLogItem[];
 		zeroQueries: SearchLogItem[];
 	}> {
-		try {
-			const popular = await db
-				.select()
-				.from(schema.searchLogs)
-				.where(sql`${schema.searchLogs.resultsCount} > 0`)
-				.orderBy(desc(schema.searchLogs.count))
-				.limit(10);
-			const zero = await db
-				.select()
-				.from(schema.searchLogs)
-				.where(eq(schema.searchLogs.resultsCount, 0))
-				.orderBy(desc(schema.searchLogs.count))
-				.limit(10);
+		if (await isDbOnline()) {
+			try {
+				const popular = await db
+					.select()
+					.from(schema.searchLogs)
+					.where(sql`${schema.searchLogs.resultsCount} > 0`)
+					.orderBy(desc(schema.searchLogs.count))
+					.limit(10);
+				const zero = await db
+					.select()
+					.from(schema.searchLogs)
+					.where(eq(schema.searchLogs.resultsCount, 0))
+					.orderBy(desc(schema.searchLogs.count))
+					.limit(10);
 
-			if (popular.length > 0 || zero.length > 0) {
-				return {
-					popularQueries: popular.map((p) => ({
-						id: p.id,
-						query: p.query,
-						count: p.count,
-						resultsCount: p.resultsCount,
-						lastSearched: 'Baru saja'
-					})),
-					zeroQueries: zero.map((z) => ({
-						id: z.id,
-						query: z.query,
-						count: z.count,
-						resultsCount: z.resultsCount,
-						lastSearched: 'Baru saja'
-					}))
-				};
+				if (popular.length > 0 || zero.length > 0) {
+					return {
+						popularQueries: popular.map((p) => ({
+							id: p.id,
+							query: p.query,
+							count: p.count,
+							resultsCount: p.resultsCount,
+							lastSearched: 'Baru saja'
+						})),
+						zeroQueries: zero.map((z) => ({
+							id: z.id,
+							query: z.query,
+							count: z.count,
+							resultsCount: z.resultsCount,
+							lastSearched: 'Baru saja'
+						}))
+					};
+				}
+			} catch {
+				// Fallback
 			}
-		} catch {
-			// Fallback
 		}
 
 		return {
@@ -1007,25 +1048,27 @@ export const repository = {
 		const clean = query.trim().toLowerCase();
 		if (!clean) return;
 
-		try {
-			await db
-				.insert(schema.searchLogs)
-				.values({
-					id: 's-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-					query: clean,
-					count: 1,
-					resultsCount
-				})
-				.onConflictDoUpdate({
-					target: schema.searchLogs.query,
-					set: {
-						count: sql`${schema.searchLogs.count} + 1`,
-						resultsCount,
-						updatedAt: new Date()
-					}
-				});
-		} catch {
-			// Fallback in-memory
+		if (await isDbOnline()) {
+			try {
+				await db
+					.insert(schema.searchLogs)
+					.values({
+						id: 's-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+						query: clean,
+						count: 1,
+						resultsCount
+					})
+					.onConflictDoUpdate({
+						target: schema.searchLogs.query,
+						set: {
+							count: sql`${schema.searchLogs.count} + 1`,
+							resultsCount,
+							updatedAt: new Date()
+						}
+					});
+			} catch {
+				// Fallback in-memory
+			}
 		}
 
 		const targetList = resultsCount === 0 ? inMemoryZeroSearchLogs : inMemorySearchLogs;
@@ -1073,14 +1116,16 @@ export const repository = {
 		const pruned = Math.max(0, initialCount - inMemoryActivities.length);
 		savePersistedData('activities.json', inMemoryActivities);
 
-		try {
-			await db.execute(
-				sql`DELETE FROM activity_logs WHERE id NOT IN (
-					SELECT id FROM activity_logs ORDER BY created_at DESC LIMIT ${keepCount}
-				)`
-			);
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db.execute(
+					sql`DELETE FROM activity_logs WHERE id NOT IN (
+						SELECT id FROM activity_logs ORDER BY created_at DESC LIMIT ${keepCount}
+					)`
+				);
+			} catch {
+				// DB fallback
+			}
 		}
 
 		await this.addActivityLog(
@@ -1095,10 +1140,12 @@ export const repository = {
 		inMemoryZeroSearchLogs.length = 0;
 		savePersistedData('searches_zero.json', inMemoryZeroSearchLogs);
 
-		try {
-			await db.delete(schema.searchLogs).where(eq(schema.searchLogs.resultsCount, 0));
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db.delete(schema.searchLogs).where(eq(schema.searchLogs.resultsCount, 0));
+			} catch {
+				// DB fallback
+			}
 		}
 
 		await this.addActivityLog(
@@ -1114,10 +1161,12 @@ export const repository = {
 		savePersistedData('searches.json', inMemorySearchLogs);
 		savePersistedData('searches_zero.json', inMemoryZeroSearchLogs);
 
-		try {
-			await db.delete(schema.searchLogs);
-		} catch {
-			// DB fallback
+		if (await isDbOnline()) {
+			try {
+				await db.delete(schema.searchLogs);
+			} catch {
+				// DB fallback
+			}
 		}
 
 		await this.addActivityLog(
@@ -1128,18 +1177,20 @@ export const repository = {
 	},
 
 	async getLibrarySettings(): Promise<LibrarySettings> {
-		try {
-			const rows = await db
-				.select()
-				.from(schema.librarySettings)
-				.where(eq(schema.librarySettings.key, 'default'))
-				.limit(1);
+		if (await isDbOnline()) {
+			try {
+				const rows = await db
+					.select()
+					.from(schema.librarySettings)
+					.where(eq(schema.librarySettings.key, 'default'))
+					.limit(1);
 
-			if (rows.length > 0 && rows[0].data) {
-				return { ...inMemorySettings, ...rows[0].data };
+				if (rows.length > 0 && rows[0].data) {
+					return { ...inMemorySettings, ...rows[0].data };
+				}
+			} catch {
+				// Fallback to inMemorySettings
 			}
-		} catch {
-			// Fallback to inMemorySettings
 		}
 		return inMemorySettings;
 	},
@@ -1151,25 +1202,26 @@ export const repository = {
 		};
 		savePersistedData('settings.json', inMemorySettings);
 
-		try {
-			await db
-				.insert(schema.librarySettings)
-				.values({
-					key: 'default',
-					data: inMemorySettings,
-					updatedAt: new Date()
-				})
-				.onConflictDoUpdate({
-					target: schema.librarySettings.key,
-					set: {
+		if (await isDbOnline()) {
+			try {
+				await db
+					.insert(schema.librarySettings)
+					.values({
+						key: 'default',
 						data: inMemorySettings,
 						updatedAt: new Date()
-					}
-				});
-		} catch {
-			// Persisted in memory
+					})
+					.onConflictDoUpdate({
+						target: schema.librarySettings.key,
+						set: {
+							data: inMemorySettings,
+							updatedAt: new Date()
+						}
+					});
+			} catch {
+				// Persisted in memory
+			}
 		}
-
 		return inMemorySettings;
 	},
 

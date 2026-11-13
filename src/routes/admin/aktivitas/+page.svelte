@@ -78,11 +78,10 @@
 				<ArrowLeft size={16} />
 			</a>
 			<div>
-				<h2 class="font-serif text-xl font-bold text-ink sm:text-2xl">
-					Log Sirkulasi & Pencarian
-				</h2>
+				<h2 class="font-serif text-xl font-bold text-ink sm:text-2xl">Log Sirkulasi & Pencarian</h2>
 				<p class="mt-0.5 text-xs text-ink-muted">
-					Audit trail kegiatan pustakawan, telemetri pencarian sivitas, dan manajemen penyimpanan ringan
+					Audit trail kegiatan pustakawan, telemetri pencarian sivitas, dan manajemen penyimpanan
+					ringan
 				</p>
 			</div>
 		</div>
@@ -106,8 +105,12 @@
 	</div>
 
 	<!-- Storage Retention & Optimization Banner (Best Practice Industri) -->
-	<div class="catalog-card rounded-lg border border-ink/15 bg-sand/30 p-5 shadow-[0_2px_4px_rgba(42,26,22,0.04)] sm:p-6">
-		<div class="flex flex-col justify-between gap-4 border-b border-ink/10 pb-4 sm:flex-row sm:items-center">
+	<div
+		class="catalog-card rounded-lg border border-ink/15 bg-sand/30 p-5 shadow-[0_2px_4px_rgba(42,26,22,0.04)] sm:p-6"
+	>
+		<div
+			class="flex flex-col justify-between gap-4 border-b border-ink/10 pb-4 sm:flex-row sm:items-center"
+		>
 			<div class="flex items-center gap-2.5">
 				<div class="rounded-md bg-brick/10 p-2 text-brick">
 					<HardDrive size={18} />
@@ -117,12 +120,15 @@
 						Optimasi Penyimpanan & Retensi Log (Lightweight Engine)
 					</h3>
 					<p class="text-xs text-ink-muted">
-						Arsitektur hemat disk untuk server lokal perpustakaan dengan pencegahan penumpukan data (*Anti-Bloat*)
+						Arsitektur hemat disk untuk server lokal perpustakaan dengan pencegahan penumpukan data
+						(*Anti-Bloat*)
 					</p>
 				</div>
 			</div>
 
-			<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
+			<span
+				class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+			>
 				<Sparkles size={13} />
 				<span>Penyimpanan Optimal ({formatBytes(data.logStats.estimatedSizeBytes)})</span>
 			</span>
@@ -131,7 +137,7 @@
 		<!-- Metrics Grid -->
 		<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			<div class="rounded-md border border-ink/10 bg-white/60 p-3.5">
-				<span class="block text-[11px] font-medium text-ink-muted uppercase tracking-wider">
+				<span class="block text-[11px] font-medium tracking-wider text-ink-muted uppercase">
 					Kapasitas Audit Trail (FIFO)
 				</span>
 				<div class="mt-1 flex items-baseline gap-2">
@@ -148,7 +154,7 @@
 			</div>
 
 			<div class="rounded-md border border-ink/10 bg-white/60 p-3.5">
-				<span class="block text-[11px] font-medium text-ink-muted uppercase tracking-wider">
+				<span class="block text-[11px] font-medium tracking-wider text-ink-muted uppercase">
 					Agregasi Log Pencarian
 				</span>
 				<div class="mt-1 flex items-baseline gap-2">
@@ -165,13 +171,11 @@
 			</div>
 
 			<div class="rounded-md border border-ink/10 bg-white/60 p-3.5">
-				<span class="block text-[11px] font-medium text-ink-muted uppercase tracking-wider">
+				<span class="block text-[11px] font-medium tracking-wider text-ink-muted uppercase">
 					Kebijakan Retensi Aktif
 				</span>
 				<div class="mt-1 flex items-baseline gap-1">
-					<span class="font-mono text-sm font-bold text-brick">
-						Circular Buffer
-					</span>
+					<span class="font-mono text-sm font-bold text-brick"> Circular Buffer </span>
 				</div>
 				<p class="mt-1 text-[11px] text-ink-muted">
 					Server bebas risiko kehabisan ruang disk (*zero disk-full risk*).
@@ -262,9 +266,10 @@
 					</button>
 				</div>
 
-				<p class="text-xs text-ink-muted leading-relaxed">
-					Apakah Anda yakin ingin mengosongkan seluruh riwayat kata kunci pencarian sivitas akademika? 
-					Statistik kata kunci populer dan nihil akan dihitung ulang dari awal. Tindakan ini tidak dapat dibatalkan.
+				<p class="text-xs leading-relaxed text-ink-muted">
+					Apakah Anda yakin ingin mengosongkan seluruh riwayat kata kunci pencarian sivitas
+					akademika? Statistik kata kunci populer dan nihil akan dihitung ulang dari awal. Tindakan
+					ini tidak dapat dibatalkan.
 				</p>
 
 				<form

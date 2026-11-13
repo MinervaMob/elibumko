@@ -3,16 +3,26 @@ import { bookService, categoryService } from '#lib/server/services';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const initialQuery = url.searchParams.get('q') || '';
-	const [books, ddcTree, categories] = await Promise.all([
-		bookService.getBooks(),
-		categoryService.getDdcTree(),
-		categoryService.getCategories()
-	]);
+	try {
+		const [books, ddcTree, categories] = await Promise.all([
+			bookService.getBooks(),
+			categoryService.getDdcTree(),
+			categoryService.getCategories()
+		]);
 
-	return {
-		books,
-		ddcTree,
-		categories,
-		initialQuery
-	};
+		return {
+			books: books || [],
+			ddcTree: ddcTree || [],
+			categories: categories || [],
+			initialQuery
+		};
+	} catch (err) {
+		console.error('Error loading /rak:', err);
+		return {
+			books: [],
+			ddcTree: [],
+			categories: [],
+			initialQuery
+		};
+	}
 };

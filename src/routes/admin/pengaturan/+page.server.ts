@@ -28,9 +28,7 @@ export const actions: Actions = {
 		const hoursSaturday = formData.get('hoursSaturday')?.toString()?.trim();
 		const storageLimitGB = Number(formData.get('storageLimitGB')) || 50;
 		const storageDriver = (formData.get('storageDriver')?.toString()?.trim() || 'local') as
-			| 'local'
-			| 'custom_local'
-			| 's3_minio';
+			'local' | 'custom_local' | 's3_minio';
 		const customStoragePath = formData.get('customStoragePath')?.toString()?.trim() || '';
 		const s3Endpoint = formData.get('s3Endpoint')?.toString()?.trim() || '';
 		const s3Bucket = formData.get('s3Bucket')?.toString()?.trim() || '';

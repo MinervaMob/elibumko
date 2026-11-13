@@ -1,5 +1,23 @@
 [
   {
+    "id": "sess-1794470068790-t6b3",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-12T07:54:28.790Z",
+    "lastActivityAt": "2026-11-12T07:54:28.790Z"
+  },
+  {
+    "id": "sess-1794459241661-gkwq",
+    "bookSlug": "sosio-antropologi-u5sz",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-12T04:54:01.661Z",
+    "lastActivityAt": "2026-11-12T05:14:27.364Z"
+  },
+  {
     "id": "sess-1794199168244-9f1l",
     "bookSlug": "sosio-antropologi-u5sz",
     "deviceHash": "dev-mw8ncpl4-532kd",

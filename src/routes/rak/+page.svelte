@@ -31,7 +31,7 @@
 
 	// Filter and sort computation
 	const filteredBooks = $derived.by(() => {
-		let list = [...data.books];
+		let list = [...(data?.books || [])];
 
 		// Search query filter
 		if (searchQuery.trim()) {
@@ -67,7 +67,7 @@
 	// Grouped books for physical shelf view (DDC 000, 200, 300, 400, 500, 600)
 	const shelfGroups = $derived.by(() => {
 		const groups: { code: string; title: string; description: string; books: BookData[] }[] = [];
-		for (const node of data.ddcTree) {
+		for (const node of data?.ddcTree || []) {
 			const booksInClass = filteredBooks.filter((b) => b.ddcCode === node.code);
 			if (booksInClass.length > 0) {
 				groups.push({

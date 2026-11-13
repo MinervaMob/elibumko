@@ -2,29 +2,45 @@
 setlocal enabledelayedexpansion
 title Server Perpustakaan Digital - ElibUMKO
 chcp 65001 >nul
-cls
 
+:: 1. Pindah ke direktori proyek ini berada
+cd /d "%~dp0"
+
+cls
 echo =====================================================================
 echo       PERPUSTAKAAN DIGITAL UNIVERSITAS MUHAMMADIYAH KOTABUMI
 echo                         (ElibUMKO Server)
 echo =====================================================================
 echo.
 
-:: 1. Cek instalasi Node.js
+:: 2. Tambahkan direktori default Node.js ke PATH jika belum terdaftar
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "PATH=%ProgramFiles%\nodejs;!PATH!"
+)
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "PATH=%ProgramFiles(x86)%\nodejs;!PATH!"
+)
+if exist "%LocalAppData%\Programs\node\node.exe" (
+    set "PATH=%LocalAppData%\Programs\node;!PATH!"
+)
+if exist "%AppData%\npm" (
+    set "PATH=%AppData%\npm;!PATH!"
+)
+
+:: 3. Verifikasi ketersediaan Node.js
 where node >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js belum terpasang di komputer ini!
-    echo Silakan unduh dan pasang Node.js LTS terlebih dahulu dari:
-    echo https://nodejs.org
+    echo [ERROR] Program Node.js belum terdeteksi di komputer ini.
+    echo.
+    echo Silakan pastikan:
+    echo 1. Anda telah mengunduh dan memasang Node.js LTS dari: https://nodejs.org
+    echo 2. Jika baru saja selesai install Node.js, silakan restart / hidupkan ulang komputer sekali saja.
     echo.
     pause
     exit /b 1
 )
 
-:: 2. Masuk ke direktori aplikasi
-cd /d "%~dp0"
-
-:: 3. Cek berkas konfigurasi .env (Otomatis dibuat jika unduh dari ZIP GitHub)
+:: 4. Cek berkas konfigurasi .env (Otomatis dibuat jika unduh dari ZIP GitHub)
 if not exist ".env" (
     echo [INFO] Berkas konfigurasi .env belum ditemukan.
     echo [INFO] Membuat berkas .env otomatis dengan konfigurasi lokal...
@@ -45,13 +61,13 @@ if not exist ".env" (
     echo.
 )
 
-:: 4. Cek node_modules (Otomatis jalankan npm install jika pertama kali)
+:: 5. Cek node_modules (Otomatis jalankan npm install jika pertama kali)
 if not exist "node_modules\" (
     echo [INFO] Menyiapkan modul aplikasi pertama kali (npm install)...
     echo Mohon tunggu 1-2 menit hingga proses pengunduhan modul selesai...
     echo (Langkah ini hanya berjalan 1 kali saja saat awal unduh dari GitHub)
     echo.
-    call npm install
+    call npm.cmd install
     if %errorlevel% neq 0 (
         echo.
         echo [ERROR] Gagal memasang modul aplikasi.
@@ -63,7 +79,7 @@ if not exist "node_modules\" (
     echo.
 )
 
-:: 5. Deteksi Alamat IP Lokal untuk Akses Wi-Fi / LAN Kampus
+:: 6. Deteksi Alamat IP Lokal untuk Akses Wi-Fi / LAN Kampus
 set "LOCAL_IP=localhost"
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" 2^>nul') do (
     set "IP_TEMP=%%a"
@@ -100,4 +116,4 @@ echo Membuka peramban (browser) otomatis dalam 3 detik...
 start "" /b cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5173"
 
 :: Jalankan server Vite dengan host 0.0.0.0 agar bisa diakses oleh komputer lain di Wi-Fi
-call npm run dev -- --host 0.0.0.0 --port 5173
+call npm.cmd run dev -- --host 0.0.0.0 --port 5173

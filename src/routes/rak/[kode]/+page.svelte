@@ -23,7 +23,7 @@
 	let visibleCount = $state(8);
 
 	const filteredBooks = $derived.by(() => {
-		let list = [...data.books];
+		let list = [...(data?.books || [])];
 
 		if (searchQuery.trim()) {
 			const q = searchQuery.toLowerCase().trim();

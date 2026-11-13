@@ -406,7 +406,9 @@
 
 				<div class="space-y-3">
 					{#if (data?.activities || []).length === 0}
-						<p class="py-2 text-center text-xs text-ink-muted">Belum ada riwayat aktivitas terbaru.</p>
+						<p class="py-2 text-center text-xs text-ink-muted">
+							Belum ada riwayat aktivitas terbaru.
+						</p>
 					{:else}
 						{#each (data?.activities || []).slice(0, 4) as act (act.id)}
 							<div class="border-b border-ink/5 pb-2 last:border-0 last:pb-0">
