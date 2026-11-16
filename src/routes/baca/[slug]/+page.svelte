@@ -18,6 +18,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { TableOfContentItem } from '#lib';
+	import { ShieldCheck, AlertCircle, EyeOff } from 'lucide-svelte';
 
 	import ReaderToolbar from '#lib/components/reader/ReaderToolbar.svelte';
 	import ReaderSearchPanel from '#lib/components/reader/ReaderSearchPanel.svelte';
@@ -231,10 +232,112 @@
 		}, 4000);
 	}
 
+	// ── DRM & Screenshot Protection State ────────────────────────────────────
+	let isWindowBlurred = $state(false);
+	let showScreenshotWarning = $state(false);
+	let screenshotWarningText = $state(
+		'Tangkapan layar dinonaktifkan demi perlindungan hak cipta naskah perpustakaan.'
+	);
+	let warningTimer: ReturnType<typeof setTimeout> | null = null;
+	const drmWatermarkId = $derived(`UMKO-DRM-${book.slug.toUpperCase()}`);
+
+	function triggerScreenshotWarning(
+		reason = 'Tangkapan layar dinonaktifkan demi perlindungan hak cipta naskah perpustakaan.'
+	) {
+		screenshotWarningText = reason;
+		showScreenshotWarning = true;
+		if (warningTimer) clearTimeout(warningTimer);
+		warningTimer = setTimeout(() => {
+			showScreenshotWarning = false;
+		}, 3500);
+
+		// Poison clipboard immediately if API available
+		if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+			navigator.clipboard
+				.writeText(
+					'Naskah ini dilindungi Hak Cipta Perpustakaan Digital Universitas Muhammadiyah Kotabumi (ElibUMKO). Tangkapan layar dan penggandaan tidak diizinkan.'
+				)
+				.catch(() => {});
+		}
+	}
+
+	function handleBlur() {
+		isWindowBlurred = true;
+	}
+
+	function handleFocus() {
+		isWindowBlurred = false;
+	}
+
+	function handleVisibilityChange() {
+		if (typeof document !== 'undefined') {
+			isWindowBlurred = document.hidden;
+		}
+	}
+
+	function handleKeyUp(e: KeyboardEvent) {
+		if (e.key === 'PrintScreen') {
+			triggerScreenshotWarning();
+			isWindowBlurred = true;
+			setTimeout(() => {
+				if (typeof document !== 'undefined' && !document.hidden && document.hasFocus()) {
+					isWindowBlurred = false;
+				}
+			}, 1500);
+		}
+	}
+
 	// ── Keyboard shortcuts ────────────────────────────────────────────────────
 	function handleKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
 		if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+
+		// ── Intercept screenshot & screen-capture shortcuts ──
+		// PrintScreen, Win+Shift+S (Meta+Shift+S), Ctrl+Shift+S, macOS Cmd+Shift+3/4/5
+		if (
+			e.key === 'PrintScreen' ||
+			(e.shiftKey && (e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) ||
+			(e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key))
+		) {
+			e.preventDefault();
+			e.stopPropagation();
+			triggerScreenshotWarning();
+			isWindowBlurred = true;
+			setTimeout(() => {
+				if (typeof document !== 'undefined' && !document.hidden && document.hasFocus()) {
+					isWindowBlurred = false;
+				}
+			}, 1500);
+			return;
+		}
+
+		// Prevent Print dialog (Ctrl+P / Cmd+P)
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+			e.preventDefault();
+			e.stopPropagation();
+			triggerScreenshotWarning('Fungsi cetak dokumen dinonaktifkan demi perlindungan hak cipta.');
+			return;
+		}
+
+		// Prevent Save Page (Ctrl+S / Cmd+S)
+		if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && !e.shiftKey) {
+			e.preventDefault();
+			e.stopPropagation();
+			triggerScreenshotWarning('Penyimpanan naskah lokal dinonaktifkan.');
+			return;
+		}
+
+		// Prevent Developer Tools shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U)
+		if (
+			e.key === 'F12' ||
+			((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) ||
+			((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'I', 'j', 'J', 'c', 'C'].includes(e.key))
+		) {
+			e.preventDefault();
+			e.stopPropagation();
+			triggerScreenshotWarning('Akses inspeksi elemen dinonaktifkan pada mode pembaca.');
+			return;
+		}
 
 		if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
 			e.preventDefault();
@@ -295,6 +398,10 @@
 		loadProgress();
 		saveInterval = setInterval(saveProgress, 30_000);
 		document.addEventListener('fullscreenchange', onFullscreenChange);
+		window.addEventListener('blur', handleBlur);
+		window.addEventListener('focus', handleFocus);
+		window.addEventListener('keyup', handleKeyUp);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		showToolbar();
 	});
 
@@ -302,8 +409,14 @@
 		saveProgress();
 		clearInterval(saveInterval);
 		if (toolbarHideTimer) clearTimeout(toolbarHideTimer);
-		if (typeof window !== 'undefined')
+		if (warningTimer) clearTimeout(warningTimer);
+		if (typeof window !== 'undefined') {
 			document.removeEventListener('fullscreenchange', onFullscreenChange);
+			window.removeEventListener('blur', handleBlur);
+			window.removeEventListener('focus', handleFocus);
+			window.removeEventListener('keyup', handleKeyUp);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		}
 	});
 
 	function onFullscreenChange() {
@@ -343,6 +456,24 @@
 	onmousemove={showToolbar}
 	ontouchstart={showToolbar}
 >
+	<!-- ── SCREENSHOT & DRM WARNING TOAST ─────────────────────────────────── -->
+	{#if showScreenshotWarning}
+		<div
+			class="fixed top-14 left-1/2 z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-2.5 rounded-md border border-cream/20 bg-brick px-4 py-2.5 text-xs font-medium text-cream shadow-xl backdrop-blur-md transition-all sm:text-sm"
+			role="alert"
+		>
+			<AlertCircle size={18} class="shrink-0 text-cream" />
+			<span>{screenshotWarningText}</span>
+			<button
+				type="button"
+				onclick={() => (showScreenshotWarning = false)}
+				class="ml-2 text-cream/80 hover:text-cream"
+				aria-label="Tutup notifikasi"
+			>
+				✕
+			</button>
+		</div>
+	{/if}
 	<!-- ── TOOLBAR + SEARCH (collapsible) ─────────────────────────────────── -->
 	<div
 		class="reader-toolbar-wrap z-50 shrink-0 transition-transform duration-200 ease-in-out"
@@ -452,6 +583,59 @@
 
 	<!-- ── MAIN READING AREA ──────────────────────────────────────────────── -->
 	<div class="reader-body relative flex-1 overflow-hidden">
+		<!-- ── DYNAMIC ANTI-CAMERA / ANTI-SCREENSHOT WATERMARK ──────────────── -->
+		<div
+			class="pointer-events-none absolute inset-0 z-10 overflow-hidden opacity-[0.06] mix-blend-multiply select-none dark:mix-blend-screen"
+			aria-hidden="true"
+		>
+			<div
+				class="flex h-[200%] w-[200%] -translate-x-1/4 -translate-y-1/4 -rotate-12 flex-wrap items-center justify-around gap-12 font-mono text-[11px] font-bold tracking-widest text-ink uppercase"
+			>
+				{#each Array(24) as _, i (i)}
+					<span class="whitespace-nowrap">
+						PERPUSTAKAAN DIGITAL UMKO • HAK CIPTA DILINDUNGI • {book.slug}
+					</span>
+				{/each}
+			</div>
+		</div>
+
+		<!-- ── DRM FOCUS LOSS & SCREENSHOT BLUR SHIELD ──────────────────────── -->
+		{#if isWindowBlurred}
+			<div
+				class="absolute inset-0 z-40 flex flex-col items-center justify-center bg-ink/95 px-6 text-center text-cream backdrop-blur-2xl transition-all duration-200"
+				role="alert"
+				aria-live="assertive"
+			>
+				<div class="mb-4 rounded-full bg-brick/20 p-4 text-terracotta ring-1 ring-terracotta/30">
+					<EyeOff size={42} />
+				</div>
+				<h2 class="font-serif text-xl font-bold tracking-tight text-cream sm:text-2xl">
+					Naskah Perpustakaan Terproteksi
+				</h2>
+				<p class="mt-2.5 max-w-md text-xs leading-relaxed text-sand/85 sm:text-sm">
+					Tampilan dokumen otomatis dikaburkan saat jendela kehilangan fokus atau alat perekam layar
+					/ tangkapan layar aktif demi melindungi hak cipta naskah Universitas Muhammadiyah
+					Kotabumi.
+				</p>
+				<div
+					class="mt-4 flex items-center gap-2 rounded-sm border border-sand/15 bg-sand/10 px-3 py-1.5 font-mono text-[11px] text-sand/75"
+				>
+					<ShieldCheck size={14} class="text-terracotta" />
+					<span>Kode Lisensi: {drmWatermarkId}</span>
+				</div>
+				<button
+					type="button"
+					onclick={() => {
+						isWindowBlurred = false;
+						if (typeof window !== 'undefined') window.focus();
+					}}
+					class="mt-6 rounded-md bg-brick px-5 py-2 text-xs font-semibold text-cream shadow-md transition-all hover:bg-brick/90 focus:ring-2 focus:ring-sand focus:outline-hidden sm:text-sm"
+				>
+					Lanjutkan Membaca
+				</button>
+			</div>
+		{/if}
+
 		<!-- TOC Side panel -->
 		<ReaderTocPanel
 			isOpen={isTocOpen}
@@ -607,6 +791,16 @@
 		user-select: none;
 		-webkit-user-select: none;
 		overflow: hidden;
+	}
+
+	/* Print suppression: Prevent Ctrl+P or OS Print from capturing book contents */
+	@media print {
+		:global(body),
+		:global(html),
+		:global(.reader-shell) {
+			display: none !important;
+			visibility: hidden !important;
+		}
 	}
 
 	/* Progress range slider */

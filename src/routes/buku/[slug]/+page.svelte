@@ -270,7 +270,7 @@
 						onclick={() => (isSynopsisExpanded = !isSynopsisExpanded)}
 						class="focus-library mt-2 text-xs font-semibold text-brick transition-colors hover:text-brick-dark"
 					>
-						{isSynopsisExpanded ? 'Sembunyikan sinopsis &uarr;' : 'Baca selengkapnya &rarr;'}
+						{isSynopsisExpanded ? 'Sembunyikan sinopsis' : 'Baca selengkapnya'}
 					</button>
 				</div>
 

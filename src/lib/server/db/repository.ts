@@ -58,11 +58,29 @@ function initPersistedData<T>(fileName: string, fallback: T): T {
 	return fallback;
 }
 
+const pendingDiskWrites = new Map<string, NodeJS.Timeout>();
+
 function savePersistedData<T>(fileName: string, data: T): void {
 	try {
 		ensureDataDir();
 		const filePath = join(DATA_DIR, fileName);
-		writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+		const serialized = JSON.stringify(data, null, 2);
+
+		const existing = pendingDiskWrites.get(fileName);
+		if (existing) clearTimeout(existing);
+
+		// Asynchronous debounced write ensures current SSR response completes without disk/Vite lock contention
+		const timer = setTimeout(() => {
+			try {
+				writeFileSync(filePath, serialized, 'utf-8');
+			} catch (e) {
+				console.error(`[StorageEngine] Failed writing ${fileName}:`, e);
+			} finally {
+				pendingDiskWrites.delete(fileName);
+			}
+		}, 60);
+
+		pendingDiskWrites.set(fileName, timer);
 	} catch (e) {
 		console.error(`[StorageEngine] Failed writing ${fileName}:`, e);
 	}

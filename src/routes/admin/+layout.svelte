@@ -28,7 +28,7 @@
 		<AdminHeader onToggleSidebar={toggleSidebar} />
 
 		<main class="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
-			{@render children()}
+			{@render children?.()}
 		</main>
 
 		<!-- Subdued Admin Footer -->

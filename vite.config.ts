@@ -7,7 +7,18 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	server: {
 		watch: {
-			ignored: ['**/storage/**', '**/storage/**/*', '**/.git/**']
+			ignored: [
+				'**/storage/**',
+				'**/storage/**/*',
+				'**/.git/**',
+				/[\\/]storage[\\/]/,
+				/[\\/]\.git[\\/]/,
+				(path: string) =>
+					typeof path === 'string' && (path.includes('storage') || path.includes('.git'))
+			]
+		},
+		fs: {
+			deny: ['**/storage/**']
 		}
 	},
 	plugins: [

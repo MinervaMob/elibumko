@@ -5,4 +5,4 @@
 	let { children }: LayoutProps = $props();
 </script>
 
-{@render children()}
+{@render children?.()}
