@@ -31,7 +31,7 @@
 
 	<main class="grow">
 		<!-- A1.2 & A1.3: Asymmetric Hero with Large Autocomplete Search and Tilted Books -->
-		<HeroSection books={data.books} />
+		<HeroSection books={data.books} metrics={data.heroMetrics} />
 
 		<!-- A1.4: Category section (Vertical book spines / catalog cards) -->
 		<CategorySection categories={data.categories} />

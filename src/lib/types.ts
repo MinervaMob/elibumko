@@ -99,6 +99,12 @@ export interface ReadingSessionRecord {
 	lastActivityAt: string;
 }
 
+export interface HeroMetrics {
+	totalBooks: number;
+	totalCategories: number;
+	totalReaders: number;
+}
+
 export interface AdminStats {
 	totalBooks: number;
 	totalPdfBooks: number;

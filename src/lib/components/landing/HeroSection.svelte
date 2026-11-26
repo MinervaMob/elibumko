@@ -1,15 +1,24 @@
 <script lang="ts">
 	import SearchAutocomplete from '#lib/components/search/SearchAutocomplete.svelte';
 	import BookCover from '#lib/components/book/BookCover.svelte';
-	import type { BookData } from '#lib/types';
+	import type { BookData, HeroMetrics } from '#lib/types';
 
 	interface Props {
 		books?: BookData[];
+		metrics?: HeroMetrics;
 	}
 
-	let { books = [] }: Props = $props();
+	let { books = [], metrics }: Props = $props();
 
 	const heroBooks = $derived(books.slice(0, 3));
+
+	const totalBooks = $derived(metrics?.totalBooks ?? books.length);
+	const totalCategories = $derived(metrics?.totalCategories ?? 0);
+	const totalReaders = $derived(metrics?.totalReaders ?? 0);
+
+	function formatMetricNumber(val: number): string {
+		return new Intl.NumberFormat('id-ID').format(val || 0);
+	}
 </script>
 
 <section class="relative overflow-hidden pt-8 pb-14 sm:pt-14 sm:pb-20">
@@ -49,19 +58,19 @@
 			<div class="grid w-full max-w-xl grid-cols-3 gap-4 border-t border-ink/15 pt-6">
 				<div>
 					<span class="block font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-						1.428
+						{formatMetricNumber(totalBooks)}
 					</span>
 					<span class="mt-0.5 block font-sans text-xs text-ink-muted"> Judul Ebook Aktif </span>
 				</div>
 				<div>
 					<span class="block font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-						12
+						{formatMetricNumber(totalCategories)}
 					</span>
 					<span class="mt-0.5 block font-sans text-xs text-ink-muted"> Klasifikasi Bidang </span>
 				</div>
 				<div>
 					<span class="block font-mono text-2xl font-bold tracking-tight text-brick sm:text-3xl">
-						3.894
+						{formatMetricNumber(totalReaders)}
 					</span>
 					<span class="mt-0.5 block font-sans text-xs text-ink-muted"> Pembaca Terdaftar </span>
 				</div>

@@ -13,7 +13,7 @@
 	 * - Keyboard navigation: ←/→ halaman, Ctrl+F cari, F fullscreen, Esc tutup panel
 	 */
 
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
@@ -84,11 +84,18 @@
 	const fileType = $derived(book.fileType ?? 'pdf');
 	const streamUrl = $derived(`/api/books/${book.slug}/stream`);
 
-	// ── TOC from book data (fallback for PDF) ─────────────────────────────────
+	// ── TOC & Progress Sync upon Book Change ──────────────────────────────────
 	$effect(() => {
-		if (book.toc?.length) {
-			toc = book.toc;
-		}
+		// When book slug changes, reset reader state & load progress for this specific book
+		const _slug = book.slug;
+		untrack(() => {
+			toc = book.toc?.length ? [...book.toc] : [];
+			currentPage = 1;
+			totalPages = 0;
+			searchResults = [];
+			searchQuery = '';
+			loadProgress();
+		});
 	});
 
 	// ── Progress persistence via localStorage ─────────────────────────────────
@@ -686,64 +693,66 @@
 			}}
 		/>
 
-		<!-- ── PDF READER ──────────────────────────────────────────────────── -->
-		{#if fileType === 'pdf'}
-			<PdfReader
-				src={streamUrl}
-				bind:currentPage
-				bind:zoom
-				{readMode}
-				{theme}
-				{twoPageSpread}
-				{toc}
-				searchQuery={isSearchOpen ? searchQuery : ''}
-				onPageChange={(p: number) => {
-					currentPage = p;
-					saveProgress();
-				}}
-				onTotalPagesLoaded={(n: number) => {
-					totalPages = n;
-				}}
-				onTocLoaded={(t: TableOfContentItem[]) => {
-					toc = t;
-				}}
-				onSearchResults={handleSearchResults}
-				onReady={() => {}}
-			/>
+		<!-- ── READER ENGINE (Keyed by book slug for complete isolation) ──── -->
+		{#key book.slug}
+			{#if fileType === 'pdf'}
+				<PdfReader
+					src={streamUrl}
+					bind:currentPage
+					bind:zoom
+					{readMode}
+					{theme}
+					{twoPageSpread}
+					{toc}
+					searchQuery={isSearchOpen ? searchQuery : ''}
+					onPageChange={(p: number) => {
+						currentPage = p;
+						saveProgress();
+					}}
+					onTotalPagesLoaded={(n: number) => {
+						totalPages = n;
+					}}
+					onTocLoaded={(t: TableOfContentItem[]) => {
+						toc = t;
+					}}
+					onSearchResults={handleSearchResults}
+					onReady={() => {}}
+				/>
 
-			<!-- ── EPUB READER ─────────────────────────────────────────────────── -->
-		{:else if fileType === 'epub'}
-			<EpubReader
-				bind:this={epubReaderEl}
-				src={streamUrl}
-				bind:currentPage
-				bind:totalPages
-				{zoom}
-				{readMode}
-				{theme}
-				{fontFamily}
-				{fontSize}
-				{lineHeight}
-				searchQuery={isSearchOpen ? searchQuery : ''}
-				onPageChange={(p: number) => {
-					currentPage = p;
-					saveProgress();
-				}}
-				onTotalPagesLoaded={(n: number) => {
-					totalPages = n;
-				}}
-				onTocLoaded={(t: TableOfContentItem[]) => {
-					toc = t;
-				}}
-				onSearchResults={handleSearchResults}
-				onReady={() => {}}
-			/>
-		{:else}
-			<div class="flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
-				<p class="font-serif text-lg text-brick">Format tidak didukung</p>
-				<p class="text-sm">Hanya PDF dan EPUB yang dapat dibaca secara online.</p>
-			</div>
-		{/if}
+				<!-- ── EPUB READER ─────────────────────────────────────────────────── -->
+			{:else if fileType === 'epub'}
+				<EpubReader
+					bind:this={epubReaderEl}
+					src={streamUrl}
+					bind:currentPage
+					bind:totalPages
+					{zoom}
+					{readMode}
+					{theme}
+					{fontFamily}
+					{fontSize}
+					{lineHeight}
+					searchQuery={isSearchOpen ? searchQuery : ''}
+					onPageChange={(p: number) => {
+						currentPage = p;
+						saveProgress();
+					}}
+					onTotalPagesLoaded={(n: number) => {
+						totalPages = n;
+					}}
+					onTocLoaded={(t: TableOfContentItem[]) => {
+						toc = t;
+					}}
+					onSearchResults={handleSearchResults}
+					onReady={() => {}}
+				/>
+			{:else}
+				<div class="flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
+					<p class="font-serif text-lg text-brick">Format tidak didukung</p>
+					<p class="text-sm">Hanya PDF dan EPUB yang dapat dibaca secara online.</p>
+				</div>
+			{/if}
+		{/key}
 
 		<!-- Tap-center to show toolbar (mobile) -->
 		<button

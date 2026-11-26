@@ -4,6 +4,13 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { TableOfContentItem } from '#lib/types';
 
+	// Polyfill Promise.try for environments lacking native support (e.g. older Chromium / Safari)
+	if (typeof (Promise as any).try !== 'function') {
+		(Promise as any).try = function (fn: any, ...args: any[]) {
+			return new Promise((resolve) => resolve(fn(...args)));
+		};
+	}
+
 	type ReadMode = 'paged' | 'scroll';
 	type Theme = 'light' | 'sepia' | 'dark' | 'contrast';
 
@@ -66,7 +73,6 @@
 
 	// IntersectionObserver for scroll mode
 	let scrollObserver: IntersectionObserver | null = null;
-	let pageCanvases: HTMLCanvasElement[] = [];
 	let renderedPages = new SvelteSet<number>();
 
 	// Theme CSS filter map
@@ -81,11 +87,44 @@
 	async function loadPdf() {
 		isLoading = true;
 		error = null;
+
+		// Cancel any pending render task & destroy existing doc to prevent memory leaks or cross-book bleed
+		if (renderTask) {
+			try {
+				renderTask.cancel();
+			} catch {}
+			renderTask = null;
+		}
+		if (renderTask2) {
+			try {
+				renderTask2.cancel();
+			} catch {}
+			renderTask2 = null;
+		}
+		if (pdfDoc) {
+			try {
+				pdfDoc.destroy();
+			} catch {}
+			pdfDoc = null;
+		}
+		if (canvasEl) {
+			const ctx = canvasEl.getContext('2d');
+			ctx?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+		}
+		if (canvas2El) {
+			const ctx2 = canvas2El.getContext('2d');
+			ctx2?.clearRect(0, 0, canvas2El.width, canvas2El.height);
+		}
+
 		try {
 			const pdfjsLib = await import('pdfjs-dist');
 			pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-			const loadingTask = pdfjsLib.getDocument({ url: src });
+			const loadingTask = pdfjsLib.getDocument({
+				url: src,
+				cMapUrl: 'https://unpkg.com/pdfjs-dist@6.4.299/cmaps/',
+				cMapPacked: true
+			});
 			const loadedDoc = await loadingTask.promise;
 			totalPages = loadedDoc.numPages;
 			onTotalPagesLoaded?.(totalPages);
@@ -94,7 +133,7 @@
 			await tick();
 			onReady?.();
 
-			// 1. Ekstraksi dan resolusi outline bawaan PDF
+			// 1. Ekstraksi dan resolusi outline bawaan PDF (cepat, non-blocking)
 			let outlineDetected = false;
 			try {
 				const outline = await loadedDoc.getOutline();
@@ -136,35 +175,38 @@
 				/* outline opsional */
 			}
 
-			// 2. Koreksi offset halaman otomatis jika Daftar Isi berasal dari database/teks
+			// 2. Koreksi offset halaman otomatis jika Daftar Isi berasal dari database.
+			// Dijalankan secara asinkron di latar belakang setelah halaman pertama tampil agar tidak memblokir render
 			if (!outlineDetected && toc && toc.length > 0 && onTocLoaded) {
-				const firstCh = toc.find((it) => /^BAB\s+(I|1)\b/i.test(it.title));
-				if (firstCh && firstCh.page <= 2 && totalPages > 5) {
+				setTimeout(async () => {
 					try {
-						for (let p = 1; p <= Math.min(25, totalPages); p++) {
-							const page = await loadedDoc.getPage(p);
-							const content = await page.getTextContent();
-							const text = content.items.map((it: any) => it.str).join(' ');
-							if (/\bBAB\s+(I|1)\b/i.test(text) && !/\.{4,}\s*\d+/i.test(text)) {
-								const offset = p - firstCh.page;
-								if (offset > 0) {
-									const adjustedToc = toc.map((it) => ({
-										...it,
-										title: it.title
-											.replace(/[\s.-_–—·•…]+$/, '')
-											.replace(/\s+/g, ' ')
-											.trim(),
-										page: Math.min(totalPages, it.page + offset)
-									}));
-									onTocLoaded(adjustedToc);
+						const firstCh = toc.find((it) => /^BAB\s+(I|1)\b/i.test(it.title));
+						if (firstCh && firstCh.page <= 2 && totalPages > 5) {
+							for (let p = 1; p <= Math.min(10, totalPages); p++) {
+								const page = await loadedDoc.getPage(p);
+								const content = await page.getTextContent();
+								const text = content.items.map((it: any) => it.str).join(' ');
+								if (/\bBAB\s+(I|1)\b/i.test(text) && !/\.{4,}\s*\d+/i.test(text)) {
+									const offset = p - firstCh.page;
+									if (offset > 0) {
+										const adjustedToc = toc.map((it) => ({
+											...it,
+											title: it.title
+												.replace(/[\s.-_–—·•…]+$/, '')
+												.replace(/\s+/g, ' ')
+												.trim(),
+											page: Math.min(totalPages, it.page + offset)
+										}));
+										onTocLoaded(adjustedToc);
+									}
+									break;
 								}
-								break;
 							}
 						}
 					} catch {
 						/* best effort */
 					}
-				}
+				}, 600);
 			}
 		} catch (e: any) {
 			isLoading = false;
@@ -244,10 +286,6 @@
 				renderTask2 = page2.render({ canvasContext: ctx2, viewport: vp2, canvas: canvas2El });
 				await renderTask2.promise;
 			}
-
-			if (currentSeq === renderSeq) {
-				onPageChange?.(targetPage);
-			}
 		} catch (e: any) {
 			if (e?.name !== 'RenderingCancelledException' && currentSeq === renderSeq) {
 				console.error('PDF render error:', e);
@@ -269,7 +307,6 @@
 		}
 
 		scrollContainerEl.innerHTML = '';
-		pageCanvases = [];
 		renderedPages.clear();
 
 		const pixelRatio = window.devicePixelRatio || 1;
@@ -287,7 +324,7 @@
 			/* fallback to standard A4 */
 		}
 
-		// Create placeholder wrappers for all pages
+		// Create lightweight placeholder wrappers (Canvases are instantiated on demand)
 		for (let i = 1; i <= totalPages; i++) {
 			const wrapper = document.createElement('div');
 			wrapper.className = 'pdf-page-wrapper';
@@ -298,18 +335,6 @@
 				min-height: ${Math.floor(defaultHeight)}px;
 				margin: 0 auto 28px;
 			`;
-
-			const canvas = document.createElement('canvas');
-			canvas.width = Math.floor(defaultWidth * pixelRatio);
-			canvas.height = Math.floor(defaultHeight * pixelRatio);
-			canvas.style.width = `${Math.floor(defaultWidth)}px`;
-			canvas.style.height = `${Math.floor(defaultHeight)}px`;
-			canvas.style.display = 'block';
-			canvas.style.background = '#ffffff';
-			canvas.style.borderRadius = '2px';
-			canvas.style.boxShadow = '2px 4px 20px rgba(42,26,22,0.22)';
-			canvas.style.pointerEvents = 'none';
-			canvas.style.userSelect = 'none';
 
 			// Page number label
 			const label = document.createElement('div');
@@ -324,30 +349,31 @@
 			`;
 			label.textContent = `— ${i} —`;
 
-			wrapper.appendChild(canvas);
 			wrapper.appendChild(label);
 			scrollContainerEl.appendChild(wrapper);
-			pageCanvases[i] = canvas;
 		}
 
-		// Lazy-render pages as they enter the viewport
+		// Virtualized lazy-render pages as they enter the viewport
 		scrollObserver?.disconnect();
 		scrollObserver = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
+					const wrapper = entry.target as HTMLElement;
+					const pageNum = parseInt(wrapper.dataset.pageNum ?? '0');
 					if (entry.isIntersecting) {
-						const pageNum = parseInt((entry.target as HTMLElement).dataset.pageNum ?? '0');
 						if (pageNum > 0 && !renderedPages.has(pageNum)) {
 							renderedPages.add(pageNum);
-							renderScrollPage(pageNum);
+							renderScrollPage(pageNum, wrapper, defaultWidth, defaultHeight, pixelRatio);
 						}
-						// Update current page indicator
-						currentPage = pageNum;
-						onPageChange?.(pageNum);
+						// Update current page indicator only if changed
+						if (pageNum > 0 && pageNum !== currentPage) {
+							currentPage = pageNum;
+							onPageChange?.(pageNum);
+						}
 					}
 				});
 			},
-			{ threshold: 0.25, rootMargin: '300px 0px' }
+			{ threshold: 0.05, rootMargin: '400px 0px' }
 		);
 
 		scrollContainerEl.querySelectorAll('.pdf-page-wrapper').forEach((el) => {
@@ -355,14 +381,30 @@
 		});
 	}
 
-	async function renderScrollPage(pageNum: number) {
-		if (!pdfDoc || !pageCanvases[pageNum]) return;
+	async function renderScrollPage(
+		pageNum: number,
+		wrapper: HTMLElement,
+		defaultWidth: number,
+		defaultHeight: number,
+		pixelRatio: number
+	) {
+		if (!pdfDoc) return;
 		try {
+			let canvas = wrapper.querySelector('canvas');
+			if (!canvas) {
+				canvas = document.createElement('canvas');
+				canvas.style.display = 'block';
+				canvas.style.background = '#ffffff';
+				canvas.style.borderRadius = '2px';
+				canvas.style.boxShadow = '2px 4px 20px rgba(42,26,22,0.22)';
+				canvas.style.pointerEvents = 'none';
+				canvas.style.userSelect = 'none';
+				wrapper.insertBefore(canvas, wrapper.firstChild);
+			}
+
 			const page = await pdfDoc.getPage(pageNum);
-			const pixelRatio = window.devicePixelRatio || 1;
 			const scale = (zoom / 100) * pixelRatio;
 			const viewport = page.getViewport({ scale });
-			const canvas = pageCanvases[pageNum];
 			const ctx = canvas.getContext('2d')!;
 			canvas.width = Math.floor(viewport.width);
 			canvas.height = Math.floor(viewport.height);
@@ -414,8 +456,6 @@
 		if (readMode === 'scroll') {
 			const el = scrollContainerEl?.querySelector(`[data-page-num="${p}"]`);
 			el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		} else {
-			renderPage(p);
 		}
 	}
 
@@ -442,7 +482,7 @@
 	});
 
 	$effect(() => {
-		// Reactive dependencies
+		// Paged mode: reacts to currentPage, zoom, twoPageSpread, pdfDoc
 		const doc = pdfDoc;
 		const page = currentPage;
 		const _z = zoom;
@@ -450,13 +490,21 @@
 		const _spread = twoPageSpread;
 		const loading = isLoading;
 
-		if (!doc || loading) return;
+		if (!doc || loading || mode !== 'paged') return;
 
-		if (mode === 'paged') {
-			void renderPage(page);
-		} else {
-			void buildScrollView();
-		}
+		void renderPage(page);
+	});
+
+	$effect(() => {
+		// Continuous scroll mode: reacts to pdfDoc, zoom, readMode (strictly EXCLUDES currentPage)
+		const doc = pdfDoc;
+		const mode = readMode;
+		const _z = zoom;
+		const loading = isLoading;
+
+		if (!doc || loading || mode !== 'scroll') return;
+
+		void buildScrollView();
 	});
 
 	$effect(() => {

@@ -24,8 +24,15 @@ function getMimeType(fileName: string): string {
 	return MIME_TYPES[ext] ?? 'application/octet-stream';
 }
 
+function extractFileName(pathOrName: string): string {
+	if (!pathOrName) return '';
+	const segments = pathOrName.split(/[/\\]/);
+	return segments[segments.length - 1]?.trim() || pathOrName.trim();
+}
+
 function sanitizeFileName(name: string): string {
-	return name.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+	const base = extractFileName(name);
+	return base.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
 }
 
 export interface StorageUsageReport {
@@ -157,32 +164,224 @@ class MediaService {
 	}
 
 	/**
-	 * Ambil berkas dokumen buku
+	 * Resolusi berkas naskah buku secara presisi dan lintas platform (Linux & Windows).
+	 * Hanya mencari berkas yang benar-benar milik buku yang diminta.
+	 * TIDAK AKAN PERNAH mengembalikan berkas buku lain.
 	 */
-	async getDocument(fileName: string): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
+	async resolveBookFile(book: {
+		slug: string;
+		filePath?: string | null;
+		fileType?: string | null;
+		title?: string;
+	}): Promise<{ fileName: string; fullPath: string; mimeType: string; size: number } | null> {
 		const { booksDir } = await this.getStorageDirs();
-		const safe = sanitizeFileName(fileName);
-		let targetPath = join(booksDir, safe);
+		const candidateDirs = [booksDir];
+		if (booksDir !== DEFAULT_BOOKS_DIR) {
+			candidateDirs.push(DEFAULT_BOOKS_DIR);
+		}
 
-		try {
-			await access(targetPath, constants.R_OK);
-		} catch {
-			// Fallback cek direktori default
-			const fallbackPath = join(DEFAULT_BOOKS_DIR, safe);
+		// 1. Cek langsung filePath jika ada
+		if (book.filePath?.trim()) {
+			const rawPath = book.filePath.trim();
+			// Absolute path
+			if (isAbsolute(rawPath)) {
+				try {
+					const s = await stat(rawPath);
+					if (s.isFile()) {
+						return {
+							fileName: extractFileName(rawPath),
+							fullPath: rawPath,
+							mimeType: getMimeType(rawPath),
+							size: s.size
+						};
+					}
+				} catch {
+					// Abaikan jika tidak ada
+				}
+			}
+
+			// Path relatif terhadap working directory
+			const cwdPath = join(process.cwd(), rawPath);
 			try {
-				await access(fallbackPath, constants.R_OK);
-				targetPath = fallbackPath;
+				const s = await stat(cwdPath);
+				if (s.isFile()) {
+					return {
+						fileName: extractFileName(rawPath),
+						fullPath: cwdPath,
+						mimeType: getMimeType(cwdPath),
+						size: s.size
+					};
+				}
 			} catch {
-				throw new Error(`Berkas "${fileName}" tidak ditemukan dalam media storage.`);
+				// Abaikan jika tidak ada
 			}
 		}
 
-		const buffer = await readFile(targetPath);
-		return {
-			buffer,
-			mimeType: getMimeType(safe),
-			size: buffer.byteLength
-		};
+		// 2. Kumpulkan kandidat nama berkas HANYA untuk buku ini
+		const candidates: string[] = [];
+		if (book.filePath?.trim()) {
+			const rawBase = extractFileName(book.filePath.trim());
+			if (rawBase) {
+				candidates.push(rawBase);
+				const safeBase = sanitizeFileName(rawBase);
+				if (safeBase && safeBase !== rawBase) {
+					candidates.push(safeBase);
+				}
+			}
+		}
+
+		const preferredExt = book.fileType ? `.${book.fileType.toLowerCase()}` : '.pdf';
+		candidates.push(`${book.slug}${preferredExt}`);
+		if (preferredExt !== '.pdf') candidates.push(`${book.slug}.pdf`);
+		if (preferredExt !== '.epub') candidates.push(`${book.slug}.epub`);
+		if (preferredExt !== '.docx') candidates.push(`${book.slug}.docx`);
+
+		// Cek keberadaan berkas kandidat di direktori penyimpanan
+		for (const dir of candidateDirs) {
+			for (const cand of candidates) {
+				const target = join(dir, cand);
+				try {
+					const s = await stat(target);
+					if (s.isFile()) {
+						return {
+							fileName: cand,
+							fullPath: target,
+							mimeType: getMimeType(cand),
+							size: s.size
+						};
+					}
+				} catch {
+					// Lanjutkan
+				}
+			}
+		}
+
+		// 3. Pindai folder secara case-insensitive atau prefix-match HANYA untuk naskah buku ini
+		const slugLower = book.slug.toLowerCase();
+		const rawBaseLower = book.filePath ? extractFileName(book.filePath).toLowerCase() : '';
+
+		for (const dir of candidateDirs) {
+			try {
+				const files = await readdir(dir);
+				for (const file of files) {
+					const fileLower = file.toLowerCase();
+
+					// Cocokkan persis case-insensitive
+					const isExactMatch =
+						(rawBaseLower && fileLower === rawBaseLower) ||
+						candidates.some((c) => c.toLowerCase() === fileLower);
+
+					// Atau cocokkan prefix jika berkas berawalan slug buku ini (misal: slug-12345.pdf)
+					const isSlugPrefixMatch =
+						fileLower.startsWith(`${slugLower}.`) || fileLower.startsWith(`${slugLower}-`);
+
+					if (isExactMatch || isSlugPrefixMatch) {
+						const fullPath = join(dir, file);
+						const s = await stat(fullPath);
+						if (s.isFile()) {
+							return {
+								fileName: file,
+								fullPath,
+								mimeType: getMimeType(file),
+								size: s.size
+							};
+						}
+					}
+				}
+			} catch {
+				// Abaikan jika direktori tidak dapat dibaca
+			}
+		}
+
+		// Berkas buku ini tidak ditemukan. Jangan pernah fallback ke buku lain!
+		return null;
+	}
+
+	/**
+	 * Ambil berkas dokumen buku
+	 */
+	async getDocument(
+		fileName: string
+	): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
+		const { booksDir } = await this.getStorageDirs();
+		const candidateDirs = [booksDir];
+		if (booksDir !== DEFAULT_BOOKS_DIR) {
+			candidateDirs.push(DEFAULT_BOOKS_DIR);
+		}
+
+		// 1. Jika path absolut langsung
+		if (isAbsolute(fileName)) {
+			try {
+				await access(fileName, constants.R_OK);
+				const buffer = await readFile(fileName);
+				return {
+					buffer,
+					mimeType: getMimeType(fileName),
+					size: buffer.byteLength
+				};
+			} catch {
+				// Cek opsi lain
+			}
+		}
+
+		// 2. Cek path relatif dari process.cwd()
+		const cwdPath = join(process.cwd(), fileName);
+		try {
+			await access(cwdPath, constants.R_OK);
+			const buffer = await readFile(cwdPath);
+			return {
+				buffer,
+				mimeType: getMimeType(cwdPath),
+				size: buffer.byteLength
+			};
+		} catch {
+			// Cek opsi lain
+		}
+
+		// 3. Cek direktori books
+		const raw = extractFileName(fileName);
+		const safe = sanitizeFileName(raw);
+
+		for (const dir of candidateDirs) {
+			for (const cand of [raw, safe]) {
+				if (!cand) continue;
+				const target = join(dir, cand);
+				try {
+					await access(target, constants.R_OK);
+					const buffer = await readFile(target);
+					return {
+						buffer,
+						mimeType: getMimeType(cand),
+						size: buffer.byteLength
+					};
+				} catch {
+					// Lanjutkan
+				}
+			}
+		}
+
+		// 4. Case-insensitive lookup
+		const rawLower = raw.toLowerCase();
+		for (const dir of candidateDirs) {
+			try {
+				const files = await readdir(dir);
+				for (const f of files) {
+					if (f.toLowerCase() === rawLower) {
+						const target = join(dir, f);
+						const buffer = await readFile(target);
+						return {
+							buffer,
+							mimeType: getMimeType(f),
+							size: buffer.byteLength
+						};
+					}
+				}
+			} catch {
+				// Lanjutkan
+			}
+		}
+
+		throw new Error(`Berkas "${fileName}" tidak ditemukan dalam media storage.`);
 	}
 
 	/**
@@ -199,7 +398,7 @@ class MediaService {
 			throw new Error('Format berkas gambar tidak didukung. Gunakan JPG, PNG, WebP, atau AVIF.');
 		}
 
-		const rawBase = fileName.replace(/\.[^/.]+$/, '');
+		const rawBase = extractFileName(fileName).replace(/\.[^/.]+$/, '');
 		const safeName = `cover-${sanitizeFileName(rawBase)}-${Date.now()}${ext}`;
 		const filePath = join(coversDir, safeName);
 
@@ -217,27 +416,63 @@ class MediaService {
 	 */
 	async getCover(fileName: string): Promise<{ buffer: Buffer; mimeType: string; size: number }> {
 		const { coversDir } = await this.getStorageDirs();
-		const safe = sanitizeFileName(fileName);
-		let targetPath = join(coversDir, safe);
+		const candidateDirs = [coversDir];
+		if (coversDir !== DEFAULT_COVERS_DIR) {
+			candidateDirs.push(DEFAULT_COVERS_DIR);
+		}
 
-		try {
-			await access(targetPath, constants.R_OK);
-		} catch {
-			const fallbackPath = join(DEFAULT_COVERS_DIR, safe);
+		// 1. Direct absolute path
+		if (isAbsolute(fileName)) {
 			try {
-				await access(fallbackPath, constants.R_OK);
-				targetPath = fallbackPath;
+				await access(fileName, constants.R_OK);
+				const buffer = await readFile(fileName);
+				return {
+					buffer,
+					mimeType: getMimeType(fileName),
+					size: buffer.byteLength
+				};
 			} catch {
-				throw new Error(`Berkas sampul "${fileName}" tidak ditemukan.`);
+				// Lanjut
 			}
 		}
 
-		const buffer = await readFile(targetPath);
-		return {
-			buffer,
-			mimeType: getMimeType(safe),
-			size: buffer.byteLength
-		};
+		// 2. Relative to process.cwd()
+		const cwdPath = join(process.cwd(), fileName);
+		try {
+			await access(cwdPath, constants.R_OK);
+			const buffer = await readFile(cwdPath);
+			return {
+				buffer,
+				mimeType: getMimeType(cwdPath),
+				size: buffer.byteLength
+			};
+		} catch {
+			// Lanjut
+		}
+
+		// 3. Candidate dirs
+		const raw = extractFileName(fileName);
+		const safe = sanitizeFileName(raw);
+
+		for (const dir of candidateDirs) {
+			for (const cand of [raw, safe]) {
+				if (!cand) continue;
+				const target = join(dir, cand);
+				try {
+					await access(target, constants.R_OK);
+					const buffer = await readFile(target);
+					return {
+						buffer,
+						mimeType: getMimeType(cand),
+						size: buffer.byteLength
+					};
+				} catch {
+					// Lanjut
+				}
+			}
+		}
+
+		throw new Error(`Berkas sampul "${fileName}" tidak ditemukan.`);
 	}
 
 	/**
@@ -246,46 +481,89 @@ class MediaService {
 	async deleteFile(type: 'book' | 'cover', fileName: string): Promise<boolean> {
 		const { booksDir, coversDir } = await this.getStorageDirs();
 		const dir = type === 'book' ? booksDir : coversDir;
-		const safe = sanitizeFileName(fileName);
-		const filePath = join(dir, safe);
+		const defaultDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
+		const candidateDirs = [dir];
+		if (dir !== defaultDir) {
+			candidateDirs.push(defaultDir);
+		}
 
-		try {
-			await unlink(filePath);
-			return true;
-		} catch {
-			// Cek fallback
-			const fallbackDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
-			const fallbackPath = join(fallbackDir, safe);
-			try {
-				await unlink(fallbackPath);
-				return true;
-			} catch {
-				return false;
+		const raw = extractFileName(fileName);
+		const safe = sanitizeFileName(raw);
+
+		for (const d of candidateDirs) {
+			for (const cand of [raw, safe]) {
+				if (!cand) continue;
+				try {
+					await unlink(join(d, cand));
+					return true;
+				} catch {
+					// Lanjut
+				}
 			}
 		}
+		return false;
 	}
 
 	/**
 	 * Cek keberadaan berkas
 	 */
 	async fileExists(type: 'book' | 'cover', fileName: string): Promise<boolean> {
+		if (!fileName) return false;
 		const { booksDir, coversDir } = await this.getStorageDirs();
 		const dir = type === 'book' ? booksDir : coversDir;
-		const safe = sanitizeFileName(fileName);
-		const filePath = join(dir, safe);
+		const defaultDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
+		const candidateDirs = [dir];
+		if (dir !== defaultDir) {
+			candidateDirs.push(defaultDir);
+		}
 
-		try {
-			await access(filePath, constants.R_OK);
-			return true;
-		} catch {
-			const fallbackDir = type === 'book' ? DEFAULT_BOOKS_DIR : DEFAULT_COVERS_DIR;
+		// Direct absolute path
+		if (isAbsolute(fileName)) {
 			try {
-				await access(join(fallbackDir, safe), constants.R_OK);
+				await access(fileName, constants.R_OK);
 				return true;
 			} catch {
-				return false;
+				// Lanjut
 			}
 		}
+
+		// Relative to process.cwd()
+		try {
+			await access(join(process.cwd(), fileName), constants.R_OK);
+			return true;
+		} catch {
+			// Lanjut
+		}
+
+		const raw = extractFileName(fileName);
+		const safe = sanitizeFileName(raw);
+
+		for (const d of candidateDirs) {
+			for (const cand of [raw, safe]) {
+				if (!cand) continue;
+				try {
+					await access(join(d, cand), constants.R_OK);
+					return true;
+				} catch {
+					// Lanjut
+				}
+			}
+		}
+
+		// Case-insensitive lookup
+		const rawLower = raw.toLowerCase();
+		for (const d of candidateDirs) {
+			try {
+				const files = await readdir(d);
+				if (files.some((f) => f.toLowerCase() === rawLower)) {
+					return true;
+				}
+			} catch {
+				// Lanjut
+			}
+		}
+
+		return false;
 	}
 
 	/**

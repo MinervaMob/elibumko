@@ -1,10 +1,36 @@
 import { repository } from '../db/repository';
 import { mediaService } from './media.service';
-import type { ReadingTrendPoint, AdminStats } from '#lib/types';
+import type { ReadingTrendPoint, AdminStats, HeroMetrics } from '#lib/types';
 
-export type { AdminStats };
+export type { AdminStats, HeroMetrics };
 
 export class StatsService {
+	/**
+	 * Dapatkan metrik ringkas untuk Hero Section pada landing page secara dinamis
+	 */
+	async getHeroMetrics(): Promise<HeroMetrics> {
+		const [books, categories, allSessions] = await Promise.all([
+			repository.getBooks(),
+			repository.getCategories(),
+			repository.getReadingSessions()
+		]);
+
+		const totalBooks = books.length;
+		const totalCategories = categories.length;
+
+		// Perangkat / Pembaca unik dari telemetri sesi atau akumulasi pembaca riil
+		const uniqueDevices = new Set(allSessions.map((s) => s.deviceHash));
+		const totalReadersFromSessions = uniqueDevices.size;
+		const totalReadersFromBooks = books.reduce((acc, b) => acc + (b.readersCount || 0), 0);
+		const totalReaders = Math.max(totalReadersFromSessions, totalReadersFromBooks);
+
+		return {
+			totalBooks,
+			totalCategories,
+			totalReaders
+		};
+	}
+
 	/**
 	 * Hitung statistik administrasi perpustakaan secara dinamis dan riil berdasarkan telemetri sesi
 	 */

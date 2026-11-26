@@ -566,7 +566,7 @@
 							<p class="truncate font-mono text-xs font-bold text-ink">
 								{selectedFile
 									? selectedFile.name
-									: originalBook.filePath?.split('/').pop() || 'Naskah Digital Aktif'}
+									: originalBook.filePath?.split(/[/\\]/).pop() || 'Naskah Digital Aktif'}
 							</p>
 							<p class="mt-0.5 text-[11px] text-ink-muted">
 								Format: <span class="font-semibold uppercase">{fileType}</span> · Ukuran: {formatBytes(

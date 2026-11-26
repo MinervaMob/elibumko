@@ -1,5 +1,32 @@
 [
   {
+    "id": "sess-1795660959625-1s7c",
+    "bookSlug": "kajian-prosa-fiksi",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-26T02:42:39.624Z",
+    "lastActivityAt": "2026-11-26T02:42:39.624Z"
+  },
+  {
+    "id": "sess-1795655506973-20kn",
+    "bookSlug": "kajian-prosa-fiksi",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-26T01:11:46.973Z",
+    "lastActivityAt": "2026-11-26T01:53:46.559Z"
+  },
+  {
+    "id": "sess-1795655487473-amlm",
+    "bookSlug": "filsafat-kemuhammadiyahan-tajdid-dan-pencerahan",
+    "deviceHash": "dev-mw8ncpl4-532kd",
+    "role": "mahasiswa",
+    "pagesRead": 1,
+    "createdAt": "2026-11-26T01:11:27.473Z",
+    "lastActivityAt": "2026-11-26T01:11:27.473Z"
+  },
+  {
     "id": "sess-1794470068790-t6b3",
     "bookSlug": "sosio-antropologi-u5sz",
     "deviceHash": "dev-mw8ncpl4-532kd",

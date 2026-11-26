@@ -39,7 +39,7 @@
     "fileType": "pdf",
     "filePath": "storage/books/Buku-KAJIAN-PROSA-FIKSI_Sri-Widayati_2020-1794187851181.pdf",
     "coverUrl": "/api/covers/cover-Screenshot_20261109_083126-1794187938211.png",
-    "readersCount": 0,
+    "readersCount": 2,
     "isSaved": true,
     "isFeatured": true,
     "createdAt": "2024-11-09"
@@ -191,7 +191,7 @@
     ],
     "fileType": "epub",
     "filePath": "storage/books/filsafat-kemuhammadiyahan-tajdid-dan-pencerahan.epub",
-    "readersCount": 0,
+    "readersCount": 1,
     "isSaved": false,
     "isFeatured": false,
     "createdAt": "2022-08-20"
